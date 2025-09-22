@@ -1,0 +1,35 @@
+@WebAPI_NET9_HostAddress = http://localhost:5100
+
+GET {{WebAPI_NET9_HostAddress}}/api/Mitarbeiter
+Accept: application/json
+
+###
+
+GET {{WebAPI_NET9_HostAddress}}/api/Mitarbeiter/{id}
+Accept: application/json
+
+###
+
+GET {{WebAPI_NET9_HostAddress}}/api/Mitarbeiter/birthDate?=<Datum>
+Accept: application/json
+
+###
+
+### DELETE Mitarbeiter
+DELETE {{WebAPI_NET9_HostAddress}}/api/Mitarbeiter/{id}
+Accept: application/json
+
+###
+
+### PATCH Mitarbeiter
+PATCH {{WebAPI_NET9_HostAddress}}/api/Mitarbeiter/{id}
+Content-Type: application/json
+
+{
+    "FirstName": "NeuerVorname",
+    "LastName": "NeuerNachname",
+    "BirthDate": "2000-01-01",
+    "IsActive": true
+}
+
+###

@@ -1,0 +1,72 @@
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+// using Microsoft.AspNetCore.Authentication
+using WebAPI_NET9;
+using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.OpenApi;
+
+var builder = WebApplication.CreateBuilder(args);
+
+
+/**
+builder.AddStandardServices();
+builder.AddAuthServices(); // JWT Bearer Authentifizierung
+builder.AddHealthCheckServices();
+builder.AddCustomServices();
+
+**/
+
+builder.Services.AddControllers();
+Console.WriteLine("Hello from .NET 9 Web API!");
+
+builder.Services.AddOpenApi("WebAPI");
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+   options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default); 
+});
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi(); 
+    app.UseSwagger();
+    app.UseSwaggerUI();
+    Console.WriteLine("Swagger enabled in Development environment.");
+}
+
+
+app.MapControllers();
+Console.WriteLine("Available Endpoints:");
+
+foreach (var endpoint in app.Services.GetRequiredService<Microsoft.AspNetCore.Routing.EndpointDataSource>().Endpoints)
+{
+    if (endpoint is Microsoft.AspNetCore.Routing.RouteEndpoint routeEndpoint)
+    {
+        Console.WriteLine($"Route: {routeEndpoint.RoutePattern.RawText}");
+    }
+}
+
+foreach (var endpoint in app.Services.GetRequiredService<Microsoft.AspNetCore.Routing.EndpointDataSource>().Endpoints)
+{
+    var routeEndpoint = endpoint as Microsoft.AspNetCore.Routing.RouteEndpoint;
+    if (routeEndpoint != null)
+    {
+        var httpMethods = routeEndpoint.Metadata
+            .OfType<Microsoft.AspNetCore.Routing.HttpMethodMetadata>()
+            .FirstOrDefault()?.HttpMethods;
+        Console.WriteLine($"Route: {routeEndpoint.RoutePattern.RawText}, Methoden: {string.Join(",", httpMethods ?? new List<string>())}");
+    }
+}
+
+
+app.Run();
+
+
+
+
