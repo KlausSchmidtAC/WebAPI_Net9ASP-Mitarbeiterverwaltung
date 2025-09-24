@@ -1,5 +1,5 @@
-﻿namespace Domain
-{
+﻿namespace Domain; 
+
 
     public class Mitarbeiter
     {
@@ -35,4 +35,3 @@
             return $"Mitarbeiter: ID= {id}, Vorname= {FirstName}, Nachname= {LastName}, Geburtsdatum= {BirthDate}, Aktiv= {IsActive}";
         }
     }
-}

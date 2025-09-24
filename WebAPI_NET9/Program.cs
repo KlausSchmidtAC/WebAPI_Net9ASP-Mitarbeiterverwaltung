@@ -1,11 +1,12 @@
-using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-// using Microsoft.AspNetCore.Authentication
 using WebAPI_NET9;
-using Microsoft.OpenApi.Models;
-using Microsoft.AspNetCore.OpenApi;
+using Application;
+using Data.Repositories; 
+using Microsoft.AspNetCore.Routing; // Für EndpointDataSource, RouteEndpoint
+using Microsoft.AspNetCore.Http; // Für HttpMethodMetadata
+using System.Linq; // Für OfType(), FirstOrDefault()
+
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +31,10 @@ builder.Services.ConfigureHttpJsonOptions(options =>
    options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default); 
 });
 
+// Dependency Injection Services als Scoped (für jeden einzelnen Request) registrieren 
+builder.Services.AddSingleton<IMitarbeiterService, MitarbeiterService>();
+builder.Services.AddSingleton<IMitarbeiterRepository, MitarbeiterRepository>();
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -39,7 +44,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
     Console.WriteLine("Swagger enabled in Development environment.");
 }
-
 
 app.MapControllers();
 Console.WriteLine("Available Endpoints:");
