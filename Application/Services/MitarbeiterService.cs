@@ -17,28 +17,28 @@ public class MitarbeiterService : IMitarbeiterService
         return _mitarbeiterRepository.GetAll();
     }
 
-    public Mitarbeiter GetMitarbeiterById(int id)
+    public Mitarbeiter? GetMitarbeiterById(int id)
     {
         return _mitarbeiterRepository.GetById(id);
     }
 
-    public IEnumerable<Mitarbeiter> SearchMitarbeiter(string search)
+    public IEnumerable<Mitarbeiter>? SearchMitarbeiter(string search)
     {
         return _mitarbeiterRepository.Search(search);
     }
 
-    public void CreateMitarbeiter(Mitarbeiter mitarbeiter)
+    public bool CreateMitarbeiter(Mitarbeiter mitarbeiter, out string? errorMessage)
     {
-        _mitarbeiterRepository.Add(mitarbeiter);
+        return _mitarbeiterRepository.Add(mitarbeiter, out errorMessage);
     }
 
-    public void UpdateMitarbeiter(Mitarbeiter mitarbeiter)
+    public bool UpdateMitarbeiter(int id, Mitarbeiter mitarbeiter, out string? errorMessage)
     {
-        _mitarbeiterRepository.Update(mitarbeiter);
+        return _mitarbeiterRepository.Update(id, mitarbeiter, out errorMessage);
     }
 
-    public void DeleteMitarbeiter(int id)
+    public bool DeleteMitarbeiter(int id)
     {
-        _mitarbeiterRepository.Delete(id);
+        return _mitarbeiterRepository.Delete(id);
     }
 }

@@ -1,9 +1,11 @@
 namespace Data.Repositories;
+
+using System.Linq.Expressions;
 using Domain; 
 public class MitarbeiterRepository : IMitarbeiterRepository
 {
     private readonly List<Mitarbeiter> _mitarbeiterList;
-    
+    private int _nextId = 7;
 
     public MitarbeiterRepository()
     {
@@ -26,38 +28,155 @@ public class MitarbeiterRepository : IMitarbeiterRepository
         return _mitarbeiterList;
     }
 
-    public Mitarbeiter GetById(int id)
-    {
+    public Mitarbeiter? GetById(int id)
+    {   
         return _mitarbeiterList.FirstOrDefault(m => m.id == id);
     }
 
-    public IEnumerable<Mitarbeiter> Search(string search)
+    public IEnumerable<Mitarbeiter>? Search(string search)
     {
-        return _mitarbeiterList.Where(m => m.FirstName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                                           m.LastName.Contains(search, StringComparison.OrdinalIgnoreCase));
+        try {
+            if (search == "isActive")
+            {
+                return _mitarbeiterList.Where(m => m.IsActive);
+            }
+            else if (search == "LastName")
+            {
+                return _mitarbeiterList.OrderBy(m => m.LastName).Reverse().ToList(); ;
+            }
+            else if (DateOnly.TryParseExact(search, "yyyy-MM-dd",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out DateOnly date))
+            {
+                var birthDate_parsed = date;
+                return _mitarbeiterList.Where(m => DateOnly.Parse(m.BirthDate) < birthDate_parsed);
+            }
+            return Enumerable.Empty<Mitarbeiter>();
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
     }
 
-    public void Add(Mitarbeiter mitarbeiter)
+    public bool Add(Mitarbeiter? mitarbeiter, out string? errorMessage)
     {
+        
+        DateOnly date;
+
+        try {
+        if (mitarbeiter == null)
+        {
+            errorMessage = "Mitarbeiterdaten sind korrumpiert oder leer.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(mitarbeiter.FirstName) || string.IsNullOrWhiteSpace(mitarbeiter.LastName))
+        {
+            errorMessage = "Ein Vorname und ein Nachname sind erforderlich.";
+            return false;
+        }
+        else if (string.IsNullOrWhiteSpace(mitarbeiter.BirthDate.ToString()))
+        {
+            errorMessage = "Ein Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.";
+            return false;
+        }
+        else if (string.IsNullOrWhiteSpace(mitarbeiter.BirthDate) ||
+            DateOnly.TryParseExact(
+                mitarbeiter.BirthDate,
+                "yyyy-MM-dd",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out DateOnly dateParsed
+            ) == false)
+        {
+            errorMessage = "Ein gültiges Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.";
+            return false;
+        }
+        else if (_mitarbeiterList.Any(m => m.FirstName == mitarbeiter.FirstName && m.LastName == mitarbeiter.LastName && m.BirthDate == mitarbeiter.BirthDate))
+        {
+            errorMessage = "Ein Mitarbeiter mit dem gleichen Vornamen, Nachnamen und Geburtsdatum existiert bereits.";
+            return false;
+        }
+        else
+                {
+                    date = dateParsed;
+                }
+            }
+            catch (FormatException ex)
+            {
+                errorMessage = $"Fehler beim Verarbeiten des Geburtsdatums: invalide Zeichen eingegeben! // {ex.Message}";
+                return false;
+            }
+        mitarbeiter.id = ++_nextId;
         _mitarbeiterList.Add(mitarbeiter);
         Console.WriteLine($"Mitarbeiter mit ID {mitarbeiter.id} hinzugefügt.");
+        errorMessage = null; 
+        return true;
     }
 
-    public void Update(Mitarbeiter mitarbeiter)
-    {
-        var existingMitarbeiter = GetById(mitarbeiter.id);
-            existingMitarbeiter.FirstName = mitarbeiter.FirstName;
-            existingMitarbeiter.LastName = mitarbeiter.LastName;
-            existingMitarbeiter.BirthDate = mitarbeiter.BirthDate;
-            existingMitarbeiter.IsActive = mitarbeiter.IsActive;
+    public bool Update(int id, Mitarbeiter? mitarbeiter, out string? errorMessage)
+    {   try
+        {
+            if (mitarbeiter == null)
+            {
+                errorMessage = "Mitarbeiterdaten sind korrumpiert oder leer.";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(mitarbeiter.FirstName) || string.IsNullOrWhiteSpace(mitarbeiter.LastName))
+            {
+                errorMessage = "Ein Vorname und ein Nachname sind erforderlich.";
+                return false;
+            }
+            else if (string.IsNullOrWhiteSpace(mitarbeiter.BirthDate.ToString()))
+            {
+                errorMessage = "Ein Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.";
+                return false;
+            }
+            else if (string.IsNullOrWhiteSpace(mitarbeiter.BirthDate) ||
+                DateOnly.TryParseExact(
+                    mitarbeiter.BirthDate,
+                    "yyyy-MM-dd",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None,
+                    out DateOnly dateParsed
+                ) == false)
+            {
+                errorMessage = "Ein gültiges Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.";
+                return false;
+            }
+        }
+        catch (FormatException ex)
+        {
+            errorMessage = $"Fehler beim Verarbeiten des Geburtsdatums: invalide Zeichen eingegeben! // {ex.Message}";
+            return false;
+        }
+        var existingMitarbeiter = GetById(id);
+            if (existingMitarbeiter == null)
+            {
+                errorMessage = $"Mitarbeiter mit der ID {id} nicht gefunden. INTERNER FEHLER: NULL REFERENZ GESPEICHERT!!";
+                return false;
+            }
+        errorMessage = null;
+        existingMitarbeiter.FirstName = mitarbeiter.FirstName;
+        existingMitarbeiter.LastName = mitarbeiter.LastName;
+        existingMitarbeiter.BirthDate = mitarbeiter.BirthDate;
+        existingMitarbeiter.IsActive = mitarbeiter.IsActive;
+        return true; 
     }
 
-    public void Delete(int id)
+    public bool Delete(int id)
     {
         var mitarbeiter = GetById(id);
-        if (mitarbeiter != null)
+        if (mitarbeiter == null)
         {
-            _mitarbeiterList.Remove(mitarbeiter);
+            return false;
         }
+        _mitarbeiterList.Remove(mitarbeiter);
+        // Alt: mitarbeiter.IsActive = false; // Soft Delete
+
+        Console.WriteLine($"Mitarbeiter mit ID {id} gelöscht.");
+        return true;
     }
 }

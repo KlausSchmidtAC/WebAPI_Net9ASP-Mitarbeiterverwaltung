@@ -37,35 +37,49 @@ namespace WebAPI_NET9.Controllers
         [HttpGet("search")]
         public ActionResult<IEnumerable<Mitarbeiter>> GetSorted([FromQuery] string? search)
         {
-            var mitarbeiterListe = _mitarbeiterService.GetAllMitarbeiter().ToList();
-
-            if (mitarbeiterListe.Count == 0)
-            {
-                return NotFound("Keine Mitarbeiter in der Liste zum Sortieren.");
-            }
-
             if (string.IsNullOrWhiteSpace(search))
             {
-                return NotFound($"Bitte einen Mitarbeiterfilter eingeben'{search}'.");
-
+                return NotFound("Bitte einen gültigen Mitarbeiterfilter eingegeben.");
             }
-            else if (search == "isActive")
+
+            var mitarbeiterListe = _mitarbeiterService.SearchMitarbeiter(search).ToList();
+
+            if (search == "isActive")
             {
-                var aktiveMitarbeiter = mitarbeiterListe.FindAll(m => m.IsActive == true);
-                if (aktiveMitarbeiter.Count == 0)
-                {
-                    return NotFound("Kein aktiver Mitarbeiter gefunden.");
-                }
-                return Ok("Alle aktiven Mitarbeiter: {" + string.Join("; ", aktiveMitarbeiter) + "}");
+                if (mitarbeiterListe.Count == 0)
+                    return NotFound("Keine aktiven Mitarbeiter in der Liste.");
+                else
+                    return Ok("Alle aktiven Mitarbeiter: {" + string.Join("; ", mitarbeiterListe) + "}");
             }
 
             else if (search == "LastName")
             {
-                var sortierteMitarbeiter = mitarbeiterListe.OrderBy(m => m.LastName).Reverse().ToList();
-                return Ok("Alle Mitarbeiter nach Nachname aufsteigend alphabetisch sortiert: {" + string.Join("; ", sortierteMitarbeiter) + "}");
+                if (mitarbeiterListe.Count == 0)
+                    return NotFound("Keine Mitarbeiter in der Liste.");
+                else
+                    return Ok("Alle Mitarbeiter nach Nachname aufsteigend alphabetisch sortiert: {" + string.Join("; ", mitarbeiterListe) + "}");
             }
+
+            else if (mitarbeiterListe == null)
+            {
+                return BadRequest("Ungültiges Datumsformat bzw. Eingabe eines Datums. Bitte verwenden Sie 'yyyy-MM-dd'.");
+            }
+
+            else if (mitarbeiterListe.Count == 0)
+            {
+                return NotFound($"Kein Mitarbeiter mit früherem Geburtsdatum als {search} gefunden.");
+            }
+            else if (DateOnly.TryParseExact(search, "yyyy-MM-dd",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out DateOnly date))
+            {
+                return Ok($"Alle älteren Mitarbeiter ab {search}: {"{" + string.Join("; ", mitarbeiterListe) + "}"}");
+            }
+
             else
-                return NotFound("Keinen solchen Mitarbeiterfilter gefunden.");
+            {
+                return NotFound("Ungültiger Suchfilter. Bitte 'isActive' oder 'LastName' verwenden.");
+            }
         }
 
         [HttpGet("{id}")]
@@ -87,130 +101,76 @@ namespace WebAPI_NET9.Controllers
         [HttpGet("birthDate")]
         public ActionResult<IEnumerable<Mitarbeiter>> GetByDate([FromQuery] string? birthDate)
         {
-            var mitarbeiterListe = _mitarbeiterService.GetAllMitarbeiter().ToList();
-            if (DateOnly.TryParseExact(birthDate, "yyyy-MM-dd",
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.None, out DateOnly date))
+            if (string.IsNullOrWhiteSpace(birthDate))
             {
-                var birthDate_parsed = date;
-                var aeltere = mitarbeiterListe.FindAll((x) => DateOnly.Parse(x.BirthDate) < birthDate_parsed);
-                if (aeltere == null || aeltere.Count == 0)
-                    return NotFound($"Kein Mitarbeiter mit früherem Geburtsdatum als {birthDate} gefunden.");
-                string result = string.Join(", ", aeltere.Select(m => m.ToString()));
-                return Ok($"alle älteren Mitarbeiter ab {birthDate_parsed}: {result}");
+                return NotFound("Bitte ein Geburtsdatum im Format 'yyyy-MM-dd' eingeben.");
             }
-            else
+
+            var aeltereMitarbeiter = _mitarbeiterService.SearchMitarbeiter(birthDate).ToList();
+
+            if (aeltereMitarbeiter == null)
             {
-                return BadRequest("Eingabe ist kein Geburtsdatum oder hat das falsche Format. Bitte verwenden Sie das Format 'yyyy-MM-dd'");
+                return BadRequest("Ungültiges Datumsformat bzw. Eingabe eines Datums. Bitte verwenden Sie 'yyyy-MM-dd'.");
             }
+
+            if (aeltereMitarbeiter.Count == 0)
+            {
+                return NotFound($"Kein Mitarbeiter mit früherem Geburtsdatum als {birthDate} gefunden.");
+            }
+
+            string result = string.Join(", ", aeltereMitarbeiter.Select(m => m.ToString()));
+            return Ok($"alle älteren Mitarbeiter ab {birthDate}: {result}");
         }
 
         [HttpPost]
         public IActionResult CreateMitarbeiter([FromBody] Mitarbeiter mitarbeiter)
         {
+            string errorMessage = string.Empty;
+            var success = _mitarbeiterService.CreateMitarbeiter(mitarbeiter, out errorMessage);
 
-            DateOnly date;
-            var mitarbeiterListe = _mitarbeiterService.GetAllMitarbeiter().ToList();
-            try
+            if (!success)
             {
-                if (mitarbeiter == null)
-                {
-                    return BadRequest("Mitarbeiterdaten sind korrumpiert oder leer.");
-                }
-                else if (string.IsNullOrWhiteSpace(mitarbeiter.FirstName) || string.IsNullOrWhiteSpace(mitarbeiter.LastName))
-                {
-                    return BadRequest("Ein Vorname und ein Nachname sind erforderlich.");
-                }
-                else if (string.IsNullOrWhiteSpace(mitarbeiter.BirthDate.ToString()))
-                {
-                    return BadRequest("Ein Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.");
-                }
-                else if (DateOnly.TryParseExact(
-                    mitarbeiter.BirthDate,
-                    "yyyy-MM-dd",
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    System.Globalization.DateTimeStyles.None,
-                    out DateOnly dateParsed
-                ) == false)
-                {
-                    return BadRequest($"Eingegebenes Geburtsdatum {mitarbeiter.BirthDate} hat ein ungültiges Format. Bitte verwenden Sie das Format 'yyyy-MM-dd'.");
-                }
-                else if (mitarbeiterListe.Any(m => m.FirstName == mitarbeiter.FirstName && m.LastName == mitarbeiter.LastName && m.BirthDate == mitarbeiter.BirthDate))
-                {
-                    return BadRequest("Ein Mitarbeiter mit dem gleichen Vornamen, Nachnamen und Geburtsdatum existiert bereits.");
-                }
-                else
-                {
-                    date = dateParsed;
-                }
-            }
-            catch (FormatException ex)
-            {
-                return BadRequest($"Fehler beim Verarbeiten des Geburtsdatums: invalide Zeichen eingegeben! // {ex.Message}");
+                return BadRequest(errorMessage);
             }
 
-            int newID = mitarbeiterListe.Max(m => m.id) + 1;
-            Mitarbeiter newOne = new(newID, mitarbeiter.FirstName, mitarbeiter.LastName, date.ToString("yyyy-MM-dd"), true);
-            _mitarbeiterService.CreateMitarbeiter(newOne);
-            return CreatedAtAction(nameof(CreateMitarbeiter), new { id = newID }, newOne);
-            // return Ok(newOne);
+            return CreatedAtAction(nameof(CreateMitarbeiter), new { id = mitarbeiter.id }, mitarbeiter);
         }
 
         [HttpDelete("{id}")]
         public IActionResult DeleteMitarbeiter([FromRoute] int id)
         {
+            if (id <= 0 || id > int.MaxValue)
+            {
+                return BadRequest("Unzulässige ID");
+            }
 
-            var mitarbeiterListe = _mitarbeiterService.GetAllMitarbeiter().ToList();
-            var mitarbeiter = mitarbeiterListe.Find(m => m.id == id); // Find (...) gibt Objekt-reference zurück , keine Kopie des Mitarbeiter-Objektes
-            if (mitarbeiter == default)
+            var success = _mitarbeiterService.DeleteMitarbeiter(id);
+
+            if (!success)
+            {
                 return NotFound($"Mitarbeiter mit der ID {id} nicht gefunden.");
-            _mitarbeiterService.DeleteMitarbeiter(id);
+            }
+
             return Content("Mitarbeiter mit der ID " + id + " wurde deaktiviert bzw. gelöscht.");
         }
 
         [HttpPatch("{id}")]
         public IActionResult UpdateMitarbeiter([FromRoute] int id, [FromBody] Mitarbeiter mitarbeiter)
         {
+            string errorMessage = string.Empty;
             if (id <= 0 || id > int.MaxValue)
             {
                 return BadRequest("Unzulässige ID");
             }
-            else if (mitarbeiter == null)
+
+            var success = _mitarbeiterService.UpdateMitarbeiter(id, mitarbeiter, out errorMessage);
+
+            if (!success)
             {
-                return BadRequest("Mitarbeiterdaten sind korrumpiert oder leer.");
+                return BadRequest(errorMessage);
             }
 
-            var mitarbeiterListe = _mitarbeiterService.GetAllMitarbeiter().ToList();
-            var existingMitarbeiter = mitarbeiterListe.Find(m => m.id == id);
-
-            if (existingMitarbeiter == default || existingMitarbeiter == null)
-                return NotFound($"Mitarbeiter mit der ID {id} nicht gefunden bzw. nicht existent.");
-
-            else if (string.IsNullOrWhiteSpace(mitarbeiter.FirstName) || string.IsNullOrWhiteSpace(mitarbeiter.LastName))
-            {
-                return BadRequest("Ein neuer Vorname oder Nachname sind erforderlich.");
-            }
-            else if (string.IsNullOrWhiteSpace(mitarbeiter.BirthDate.ToString()))
-            {
-                return BadRequest("Ein neues Geburtsdatum ist erforderlich.");
-            }
-            else if (DateOnly.TryParseExact(
-                    mitarbeiter.BirthDate.ToString(),
-                    "yyyy-MM-dd",
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    System.Globalization.DateTimeStyles.None,
-                    out DateOnly dateExact
-                ) == false)
-            {
-                return BadRequest("Format oder Zeichen im Geburtsdatum ist ungültig. Bitte verwenden Sie das Format 'yyyy-MM-dd'.");
-            }
-            else if (mitarbeiter.FirstName == existingMitarbeiter.FirstName && mitarbeiter.LastName == existingMitarbeiter.LastName && mitarbeiter.BirthDate == existingMitarbeiter.BirthDate && mitarbeiter.IsActive == existingMitarbeiter.IsActive)
-            {
-                return BadRequest("Es wurden keine geänderten Daten eingegeben.");
-            }
-            Mitarbeiter patchedMitarbeiter = new(id, mitarbeiter.FirstName, mitarbeiter.LastName, mitarbeiter.BirthDate.ToString(), mitarbeiter.IsActive);
-            _mitarbeiterService.UpdateMitarbeiter(patchedMitarbeiter);
-            return CreatedAtAction(nameof(UpdateMitarbeiter), new { id = id }, patchedMitarbeiter);
+            return NoContent();
         }
     }
 }
