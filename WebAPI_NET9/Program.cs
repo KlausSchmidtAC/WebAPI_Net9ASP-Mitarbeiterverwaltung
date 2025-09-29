@@ -1,6 +1,7 @@
 using WebAPI_NET9;
 using Application;
 using Data.Repositories; 
+using Serilog;
 using Microsoft.AspNetCore.Routing; // Für EndpointDataSource, RouteEndpoint
 using Microsoft.AspNetCore.Http; // Für HttpMethodMetadata
 using System.Linq; // Für OfType(), FirstOrDefault()
@@ -9,9 +10,13 @@ using System.Linq; // Für OfType(), FirstOrDefault()
 
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog((context, configuration) =>
+    configuration
+        .WriteTo.Console()
+        .WriteTo.File("logs/app-.log", rollingInterval: RollingInterval.Day)
+        .ReadFrom.Configuration(context.Configuration));
 
-
-/**
+/** AUTHENTIFIZIERUNG, HEALTHCHECKS, STANDARD SERVICES, CUSTOM SERVICES
 builder.AddStandardServices();
 builder.AddAuthServices(); // JWT Bearer Authentifizierung
 builder.AddHealthCheckServices();
@@ -19,12 +24,16 @@ builder.AddCustomServices();
 
 **/
 
-builder.Services.AddControllers();
+
 Console.WriteLine("Hello from .NET 9 Web API!");
+
+
+builder.Services.AddControllers();
 
 builder.Services.AddOpenApi("WebAPI");
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -48,13 +57,6 @@ if (app.Environment.IsDevelopment())
 app.MapControllers();
 Console.WriteLine("Available Endpoints:");
 
-foreach (var endpoint in app.Services.GetRequiredService<Microsoft.AspNetCore.Routing.EndpointDataSource>().Endpoints)
-{
-    if (endpoint is Microsoft.AspNetCore.Routing.RouteEndpoint routeEndpoint)
-    {
-        Console.WriteLine($"Route: {routeEndpoint.RoutePattern.RawText}");
-    }
-}
 
 foreach (var endpoint in app.Services.GetRequiredService<Microsoft.AspNetCore.Routing.EndpointDataSource>().Endpoints)
 {

@@ -11,25 +11,33 @@ namespace WebAPI_NET9.Controllers
     {
 
         IMitarbeiterService _mitarbeiterService;
-
-        public MitarbeiterController(IMitarbeiterService mitarbeiterService)
+        // ILogger<MitarbeiterController> _logger; // optional: für Logging
+        public MitarbeiterController(IMitarbeiterService mitarbeiterService) // , ILogger<MitarbeiterController> logger)
         {
             _mitarbeiterService = mitarbeiterService ?? throw new ArgumentNullException(nameof(mitarbeiterService));
+            // _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            // _logger.LogInformation("MitarbeiterController initialized.");
         }
 
         [HttpGet]
         public ActionResult<IEnumerable<Mitarbeiter>> GetAll()
         {
+            // _logger.LogInformation("GetAll aufgerufen");
+
             var mitarbeiterListe = _mitarbeiterService.GetAllMitarbeiter().ToList();
             if (mitarbeiterListe.Count == 0)
+            {
+                // _logger.LogWarning("Keine Mitarbeiter in der Liste.");
                 return NotFound("Keine Mitarbeiter in der Liste.");
+            }
             else
             {
                 foreach (var mitarbeiter in mitarbeiterListe)
                 {
                     Console.WriteLine(mitarbeiter.ToString());
                 }
-                return Ok("Inhalt der gesamten MitarbeiterListe: {" + string.Join(" ;", mitarbeiterListe) + " }");
+                // _logger.LogInformation($"{mitarbeiterListe.Count} Mitarbeiter gefunden");
+                return Ok(mitarbeiterListe);
             }
         }
 
