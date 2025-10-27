@@ -8,5 +8,5 @@ public interface IMitarbeiterRepository
     IEnumerable<Mitarbeiter>? Search(string search);
     bool Add(Mitarbeiter? mitarbeiter, out string? errorMessage);
     bool Update(int id, Mitarbeiter? mitarbeiter, out string? errorMessage);
-    bool Delete(int id);
+    bool Delete(int id, out string? errorMessage);
 }
