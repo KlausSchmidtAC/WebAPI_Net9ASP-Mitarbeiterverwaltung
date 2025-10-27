@@ -7,5 +7,5 @@ public interface IMitarbeiterService
     IEnumerable<Mitarbeiter>? SearchMitarbeiter(string search);
     bool CreateMitarbeiter(Mitarbeiter mitarbeiter, out string? errorMessage);
     bool UpdateMitarbeiter(int id, Mitarbeiter mitarbeiter, out string? errorMessage);
-    bool DeleteMitarbeiter(int id);
+    bool DeleteMitarbeiter(int id, out string? errorMessage);
 }

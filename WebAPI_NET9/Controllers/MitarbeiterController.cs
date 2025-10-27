@@ -49,10 +49,14 @@ namespace WebAPI_NET9.Controllers
             {
                 return NotFound("Bitte einen gültigen Mitarbeiterfilter eingegeben.");
             }
+            var nullOrList = _mitarbeiterService.SearchMitarbeiter(search);
+            var mitarbeiterListe = (nullOrList != null) ? nullOrList.ToList() : null;
 
-            var mitarbeiterListe = _mitarbeiterService.SearchMitarbeiter(search).ToList();
-
-            if (search == "isActive")
+            if(mitarbeiterListe == null)
+            {
+                return NotFound("Ungültiger Suchfilter. Bitte 'isActive' oder 'LastName' oder ein Datum im Format 'yyyy-MM-dd' verwenden.");
+            }
+            else if (search == "isActive")
             {
                 if (mitarbeiterListe.Count == 0)
                     return NotFound("Keine aktiven Mitarbeiter in der Liste.");
@@ -67,12 +71,6 @@ namespace WebAPI_NET9.Controllers
                 else
                     return Ok("Alle Mitarbeiter nach Nachname aufsteigend alphabetisch sortiert: {" + string.Join("; ", mitarbeiterListe) + "}");
             }
-
-            else if (mitarbeiterListe == null)
-            {
-                return BadRequest("Ungültiges Datumsformat bzw. Eingabe eines Datums. Bitte verwenden Sie 'yyyy-MM-dd'.");
-            }
-
             else if (mitarbeiterListe.Count == 0)
             {
                 return NotFound($"Kein Mitarbeiter mit früherem Geburtsdatum als {search} gefunden.");
@@ -83,27 +81,26 @@ namespace WebAPI_NET9.Controllers
             {
                 return Ok($"Alle älteren Mitarbeiter ab {search}: {"{" + string.Join("; ", mitarbeiterListe) + "}"}");
             }
-
-            else
-            {
-                return NotFound("Ungültiger Suchfilter. Bitte 'isActive' oder 'LastName' verwenden.");
-            }
+            
+            return BadRequest("Ungültiger Suchfilter oder interner Fehler.");
         }
 
         [HttpGet("{id}")]
         public ActionResult<Mitarbeiter> GetMitarbeiter([FromRoute] int id)
         {
-            var mitarbeiter = _mitarbeiterService.GetMitarbeiterById(id);
-
             if (id <= 0 || id > int.MaxValue)
             {
                 return BadRequest("Unzulässige ID");
             }
-            else if (mitarbeiter == default || mitarbeiter == null)
+
+            var mitarbeiter = _mitarbeiterService.GetMitarbeiterById(id);
+            
+            if (mitarbeiter == null)
             {
                 return NotFound($"Mitarbeiter mit der ID = {id} nicht existent.");
             }
-            return Ok("Mitarbeiter mit der ID " + id + " gefunden: " + mitarbeiter);
+            
+            return Ok(mitarbeiter); // Mitarbeiter-Objekt zurückgeben, nicht String
         }
 
         [HttpGet("birthDate")]
@@ -111,10 +108,11 @@ namespace WebAPI_NET9.Controllers
         {
             if (string.IsNullOrWhiteSpace(birthDate))
             {
-                return NotFound("Bitte ein Geburtsdatum im Format 'yyyy-MM-dd' eingeben.");
+                return BadRequest("Ungültiges Datumsformat bzw. Eingabe eines Datums. Bitte verwenden Sie 'yyyy-MM-dd'.");
             }
 
-            var aeltereMitarbeiter = _mitarbeiterService.SearchMitarbeiter(birthDate).ToList();
+            var listOrNull = _mitarbeiterService.SearchMitarbeiter(birthDate);
+            var aeltereMitarbeiter = (listOrNull != null) ? listOrNull.ToList() : null;
 
             if (aeltereMitarbeiter == null)
             {
@@ -126,8 +124,7 @@ namespace WebAPI_NET9.Controllers
                 return NotFound($"Kein Mitarbeiter mit früherem Geburtsdatum als {birthDate} gefunden.");
             }
 
-            string result = string.Join(", ", aeltereMitarbeiter.Select(m => m.ToString()));
-            return Ok($"alle älteren Mitarbeiter ab {birthDate}: {result}");
+            return Ok(aeltereMitarbeiter); // Liste zurückgeben, nicht String
         }
 
         [HttpPost]
@@ -152,11 +149,11 @@ namespace WebAPI_NET9.Controllers
                 return BadRequest("Unzulässige ID");
             }
 
-            var success = _mitarbeiterService.DeleteMitarbeiter(id);
+            var success = _mitarbeiterService.DeleteMitarbeiter(id, out string? errorMessage);
 
             if (!success)
             {
-                return NotFound($"Mitarbeiter mit der ID {id} nicht gefunden.");
+                return NotFound(errorMessage);
             }
 
             return Content("Mitarbeiter mit der ID " + id + " wurde deaktiviert bzw. gelöscht.");

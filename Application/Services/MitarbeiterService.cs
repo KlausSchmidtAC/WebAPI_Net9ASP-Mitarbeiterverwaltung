@@ -37,8 +37,8 @@ public class MitarbeiterService : IMitarbeiterService
         return _mitarbeiterRepository.Update(id, mitarbeiter, out errorMessage);
     }
 
-    public bool DeleteMitarbeiter(int id)
+    public bool DeleteMitarbeiter(int id,out string? errorMessage)
     {
-        return _mitarbeiterRepository.Delete(id);
+        return _mitarbeiterRepository.Delete(id, out errorMessage);
     }
 }
