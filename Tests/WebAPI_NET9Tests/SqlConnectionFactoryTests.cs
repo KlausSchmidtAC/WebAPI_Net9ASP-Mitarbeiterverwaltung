@@ -84,7 +84,11 @@ public class SqlConnectionFactoryTests
 
         // Assert
         Assert.That(connection, Is.TypeOf<MySqlConnection>());
-        Assert.That(connection.ConnectionString, Is.EqualTo(TestConnectionString));
+        
+        // MySQL normalisiert Connection String - wichtige Eigenschaften prüfen
+        Assert.That(connection.ConnectionString, Does.Contain("server=localhost"));
+        Assert.That(connection.ConnectionString, Does.Contain("database=Mitarbeiter"));
+        Assert.That(connection.ConnectionString, Does.Contain("user id=testuser"));
         _databaseInitializer.Received(1).GetApplicationConnectionString();
     }
 
