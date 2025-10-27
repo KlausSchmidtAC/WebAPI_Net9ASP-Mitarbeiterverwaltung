@@ -17,13 +17,11 @@ public class SqlConnectionFactoryTests
     {
         // NSubstitute Mock erstellen - OHNE readonly möglich
         _databaseInitializer = Substitute.For<IDatabaseInitializer>();
-        
-        // Standard-Mock-Verhalten konfigurieren
-        _databaseInitializer.InitializeDatabase().Returns(true);
         _databaseInitializer.GetApplicationConnectionString().Returns(TestConnectionString);
+        _databaseInitializer.InitializeDatabase().Returns(true);
     }
 
-    [Test]
+    [Test] // Constructor initialisiert korrekt
     public void Constructor_DatabaseInitializationSuccessful_CreatesInstance()
     {
         // Arrange
@@ -37,7 +35,7 @@ public class SqlConnectionFactoryTests
         _databaseInitializer.Received(1).InitializeDatabase();
     }
 
-    [Test]
+    [Test] // Constructor initialisiert nicht korrekt
     public void Constructor_DatabaseInitializationFails_ThrowsInvalidOperationException()
     {
         // Arrange
@@ -51,7 +49,7 @@ public class SqlConnectionFactoryTests
         _databaseInitializer.Received(1).InitializeDatabase();
     }
 
-    [Test]
+    [Test]  // Constructor mit Null-Übergabe
     public void Constructor_NullDatabaseInitializer_ThrowsArgumentNullException()
     {
         // Act & Assert
@@ -61,7 +59,7 @@ public class SqlConnectionFactoryTests
         Assert.That(exception.ParamName, Is.EqualTo("databaseInitializer"));
     }
 
-    [Test]
+    [Test]  // GetConnectionString gibt korrekten Wert zurück
     public void GetConnectionString_ReturnsCorrectConnectionString()
     {
         // Arrange
@@ -75,7 +73,7 @@ public class SqlConnectionFactoryTests
         _databaseInitializer.Received(1).GetApplicationConnectionString();
     }
 
-    [Test]
+    [Test] // CreateConnection gibt MySqlConnection zurück
     public void CreateConnection_ReturnsMySqlConnection()
     {
         // Arrange
@@ -90,7 +88,7 @@ public class SqlConnectionFactoryTests
         _databaseInitializer.Received(1).GetApplicationConnectionString();
     }
 
-    [Test]
+    [Test] // CreateConnection ruft GetApplicationConnectionString auf
     public void CreateConnection_CallsGetApplicationConnectionString()
     {
         // Arrange
@@ -103,7 +101,7 @@ public class SqlConnectionFactoryTests
         _databaseInitializer.Received().GetApplicationConnectionString();
     }
 
-    [Test]
+    [Test]  // CreateConnection gibt bei mehreren Aufrufen unterschiedliche Instanzen zurück
     public void CreateConnection_MultipleCallsReturnDifferentInstances()
     {
         // Arrange
