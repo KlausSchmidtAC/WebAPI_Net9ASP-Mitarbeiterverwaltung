@@ -1,5 +1,6 @@
 namespace Data.SQL_DB;
 using System;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using MySql.Data.MySqlClient;
 
 
@@ -31,17 +32,17 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
     }
     public string GetApplicationConnectionString() => ApplicationConnectionString;
 
-    public bool InitializeDatabase()
+    public async Task<bool> InitializeDatabase()
     {
         try
         {
-            using (var connection = new MySqlConnection(BootstrapConnectionString))
+            using (var connection = await Task.FromResult(new MySqlConnection(BootstrapConnectionString)))
             {
-                connection.Open();
+                await connection.OpenAsync();
 
-                if (!checkIfDatabaseExists(connection))
+                if (!await CheckIfDatabaseExists(connection))
                 {
-                    CreateDatabase(connection);
+                    await CreateDatabase(connection);
                 }
 
             }
@@ -55,20 +56,20 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
         return true;
     }
 
-    public bool CreateDatabase(MySqlConnection bootstrapConnection)
+    public async Task<bool> CreateDatabase(MySqlConnection bootstrapConnection)
     {
         try
         {
             var sql_string = $"CREATE DATABASE IF NOT EXISTS `{databaseName}`;";
             using (var command = new MySqlCommand(sql_string, bootstrapConnection))
             {
-                command.ExecuteNonQuery();
+                await Task.FromResult(command.ExecuteNonQuery());
             }
 
             var useDbString = $"USE `{databaseName}`;";
             using (var command = new MySqlCommand(useDbString, bootstrapConnection))
             {
-                command.ExecuteNonQuery();
+                await Task.FromResult(command.ExecuteNonQuery())    ;
             }
 
             var createTablesString = @"
@@ -82,7 +83,7 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
 
             using (var command = new MySqlCommand(createTablesString, bootstrapConnection))
             {
-                command.ExecuteNonQuery();
+                await Task.FromResult(command.ExecuteNonQuery());
             }
 
             return true;
@@ -93,7 +94,7 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
             return false;
         }
     }
-    public bool checkIfDatabaseExists(MySqlConnection bootstrapConnection)
+    public async Task<bool> CheckIfDatabaseExists(MySqlConnection bootstrapConnection)
     {
 
         // ToDO: Alternative wäre über SQL-Anfragen zu prüfen, ob die Datenbank existiert.
@@ -109,7 +110,7 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
             using (var command = new MySqlCommand(sql_checkstring, bootstrapConnection))
             {
                 command.Parameters.AddWithValue("@databaseName", databaseName);
-                var result = command.ExecuteScalar();
+                var result = await Task.FromResult(command.ExecuteScalar());
                 return result != null; // Einfacher Return
             }
         }

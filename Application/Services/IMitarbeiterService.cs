@@ -1,11 +1,12 @@
 ﻿namespace Application;
-using Domain; // nicht nötig?? 
+using Domain;
+
 public interface IMitarbeiterService
 {
-    IEnumerable<Mitarbeiter> GetAllMitarbeiter();
-    Mitarbeiter? GetMitarbeiterById(int id);
-    IEnumerable<Mitarbeiter>? SearchMitarbeiter(string search);
-    bool CreateMitarbeiter(Mitarbeiter mitarbeiter, out string? errorMessage);
-    bool UpdateMitarbeiter(int id, Mitarbeiter mitarbeiter, out string? errorMessage);
-    bool DeleteMitarbeiter(int id, out string? errorMessage);
+    Task<IEnumerable<Mitarbeiter>> GetAllMitarbeiter();
+    Task<Mitarbeiter?> GetMitarbeiterById(int id);
+    Task<IEnumerable<Mitarbeiter>?> SearchMitarbeiter(string search);
+    Task<OperationResult> CreateMitarbeiter(Mitarbeiter mitarbeiter);
+    Task<OperationResult> UpdateMitarbeiter(int id, Mitarbeiter mitarbeiter);
+    Task<OperationResult> DeleteMitarbeiter(int id);
 }

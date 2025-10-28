@@ -2,7 +2,7 @@ namespace Data.SQL_DB;
 
     public interface IDatabaseInitializer
     {
-        bool InitializeDatabase();
+            Task<bool> InitializeDatabase();
         string GetApplicationConnectionString();
     }
     

@@ -12,33 +12,33 @@ public class MitarbeiterService : IMitarbeiterService
         _mitarbeiterRepository = mitarbeiterRepository;
     }
 
-    public IEnumerable<Mitarbeiter> GetAllMitarbeiter()
+    public Task<IEnumerable<Mitarbeiter>> GetAllMitarbeiter()
     {
         return _mitarbeiterRepository.GetAll();
     }
 
-    public Mitarbeiter? GetMitarbeiterById(int id)
+    public Task<Mitarbeiter?> GetMitarbeiterById(int id)
     {
         return _mitarbeiterRepository.GetById(id);
     }
 
-    public IEnumerable<Mitarbeiter>? SearchMitarbeiter(string search)
+    public Task<IEnumerable<Mitarbeiter>?> SearchMitarbeiter(string search)
     {
         return _mitarbeiterRepository.Search(search);
     }
 
-    public bool CreateMitarbeiter(Mitarbeiter mitarbeiter, out string? errorMessage)
+    public Task<OperationResult> CreateMitarbeiter(Mitarbeiter mitarbeiter)
     {
-        return _mitarbeiterRepository.Add(mitarbeiter, out errorMessage);
+        return _mitarbeiterRepository.Add(mitarbeiter);
     }
 
-    public bool UpdateMitarbeiter(int id, Mitarbeiter mitarbeiter, out string? errorMessage)
+    public Task<OperationResult> UpdateMitarbeiter(int id, Mitarbeiter mitarbeiter)
     {
-        return _mitarbeiterRepository.Update(id, mitarbeiter, out errorMessage);
+        return _mitarbeiterRepository.Update(id, mitarbeiter);
     }
 
-    public bool DeleteMitarbeiter(int id,out string? errorMessage)
+    public Task<OperationResult> DeleteMitarbeiter(int id)
     {
-        return _mitarbeiterRepository.Delete(id, out errorMessage);
+        return _mitarbeiterRepository.Delete(id);
     }
 }

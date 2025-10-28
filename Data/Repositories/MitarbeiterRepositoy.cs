@@ -7,22 +7,19 @@ using Dapper;
 
 public class MitarbeiterRepository : IMitarbeiterRepository
 {
-    private readonly List<Mitarbeiter> _mitarbeiterList;
-
-    private int _nextId = 7;
     private readonly IConnectionFactory _connectionFactory;
 
     public MitarbeiterRepository(IConnectionFactory connectionFactory)
     {
         _connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));   
-
+        
     }
 
-    public IEnumerable<Mitarbeiter> GetAll()
+    public async Task<IEnumerable<Mitarbeiter>> GetAll()
     {
-        using (var connection = _connectionFactory.CreateConnection())
+        using (var connection = await _connectionFactory.CreateConnection())
         {
-            connection.Open();
+            await connection.OpenAsync();
 
             /** "Langer Weg" mit MySqlCommand und MySqlDataReader. Kurze Syntax aber mit Dapper! 
 
@@ -46,7 +43,7 @@ public class MitarbeiterRepository : IMitarbeiterRepository
             **/
 
             // Option 2: Dapper mit explizitem Column-Mapping über anonyme Objekte
-            var rawData = connection.Query(
+            var rawData = await connection.QueryAsync(
                 "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Mitarbeiter"
             );
 
@@ -62,40 +59,46 @@ public class MitarbeiterRepository : IMitarbeiterRepository
         }
     }
 
-    public Mitarbeiter? GetById(int id)
+    public async Task<Mitarbeiter?> GetById(int id)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        connection.Open();
+        using (var connection = await _connectionFactory.CreateConnection())
+        {
+            await connection.OpenAsync();
 
-        // Option 2: Dapper mit explizitem Column-Mapping über anonyme Objekte
-        var rawData = connection.QueryFirstOrDefault(
-            "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Mitarbeiter WHERE Id = @id",
-            new { id = id }
-        );
+            // Option 2: Dapper mit explizitem Column-Mapping über anonyme Objekte
+            var rawData = await connection.QueryFirstOrDefaultAsync(
+                "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Mitarbeiter WHERE Id = @id",
+                new
+                {
+                    id = id
+                }
+            );
 
-        if (rawData == null)
-            return null;
 
-        return new Mitarbeiter(
-            (int)rawData.Id,
-            (string)rawData.FirstName,
-            (string)rawData.LastName,
-            ((DateTime)rawData.Birthdate).ToString("yyyy-MM-dd"),
-            (bool)rawData.IsActive
-        );
+            if (rawData == null)
+                return null;
+
+            return new Mitarbeiter(
+                (int)rawData.Id,
+                (string)rawData.FirstName,
+                (string)rawData.LastName,
+                ((DateTime)rawData.Birthdate).ToString("yyyy-MM-dd"),
+                (bool)rawData.IsActive
+            );
+        }
     }
 
-    public IEnumerable<Mitarbeiter>? Search(string search)
+    public async Task<IEnumerable<Mitarbeiter>?> Search(string search)
     {
         try
         {
             if (search == "isActive")
             {
-                using (var connection = _connectionFactory.CreateConnection())
+                using (var connection = await _connectionFactory.CreateConnection())
                 {
 
-                    connection.Open();
-                    var rawData = connection.Query(
+                    await connection.OpenAsync();
+                    var rawData = await connection.QueryAsync(
                         "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Mitarbeiter WHERE IsActive = true"
                     );
 
@@ -111,10 +114,10 @@ public class MitarbeiterRepository : IMitarbeiterRepository
             }
             else if (search == "LastName")
             {
-                using (var connection = _connectionFactory.CreateConnection())
+                using (var connection = await _connectionFactory.CreateConnection())
                 {
-                    connection.Open();
-                    var rawData = connection.Query(
+                    await connection.OpenAsync();
+                    var rawData = await connection.QueryAsync(
                         "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Mitarbeiter Order By LastName DESC"
                 );
 
@@ -134,10 +137,10 @@ public class MitarbeiterRepository : IMitarbeiterRepository
             {
                 var birthDate_parsed = date;
 
-                using (var connection = _connectionFactory.CreateConnection())
+                using (var connection = await _connectionFactory.CreateConnection())
                 {
-                    connection.Open();
-                    var rawData = connection.Query(
+                    await connection.OpenAsync();
+                    var rawData = await connection.QueryAsync(
                         "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Mitarbeiter WHERE Birthdate < @birthDate",
                         new { birthDate = birthDate_parsed.ToString("yyyy-MM-dd") }
                     );
@@ -162,28 +165,24 @@ public class MitarbeiterRepository : IMitarbeiterRepository
         }
     }
 
-    public bool Add(Mitarbeiter? mitarbeiter, out string? errorMessage)
+    public async Task<OperationResult> Add(Mitarbeiter? mitarbeiter)
     {
-
         DateOnly date;
 
         try
         {
-            if (mitarbeiter == null)
+            if (mitarbeiter == null || mitarbeiter == default(Mitarbeiter) || mitarbeiter.FirstName == null || mitarbeiter.LastName == null || mitarbeiter.BirthDate == null)
             {
-                errorMessage = "Mitarbeiterdaten sind korrumpiert oder leer.";
-                return false;
+                return OperationResult.FailureResult("Mitarbeiterdaten sind korrumpiert oder leer.");
             }
 
             if (string.IsNullOrWhiteSpace(mitarbeiter.FirstName) || string.IsNullOrWhiteSpace(mitarbeiter.LastName))
             {
-                errorMessage = "Ein Vorname und ein Nachname sind erforderlich.";
-                return false;
+                return OperationResult.FailureResult("Ein Vorname und ein Nachname sind erforderlich.");
             }
             else if (string.IsNullOrWhiteSpace(mitarbeiter.BirthDate.ToString()))
             {
-                errorMessage = "Ein gültiges Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.";
-                return false;
+                return OperationResult.FailureResult("Ein gültiges Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.");
             }
             else if (
                 DateOnly.TryParseExact(
@@ -194,13 +193,11 @@ public class MitarbeiterRepository : IMitarbeiterRepository
                     out DateOnly dateParsed
                 ) == false)
             {
-                errorMessage = "Ein gültiges Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.";
-                return false;
+                return OperationResult.FailureResult("Ein gültiges Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.");
             }
-            else if (GetAll().Any(m => m.FirstName == mitarbeiter.FirstName && m.LastName == mitarbeiter.LastName && m.BirthDate == mitarbeiter.BirthDate))
+            else if (await CheckDuplicateAsync(mitarbeiter))
             {
-                errorMessage = "Ein Mitarbeiter mit dem gleichen Vornamen, Nachnamen und Geburtsdatum existiert bereits.";
-                return false;
+                return OperationResult.FailureResult("Ein Mitarbeiter mit dem gleichen Vornamen, Nachnamen und Geburtsdatum existiert bereits.");
             }
             else
             {
@@ -209,18 +206,18 @@ public class MitarbeiterRepository : IMitarbeiterRepository
         }
         catch (FormatException ex)
         {
-            errorMessage = $"Fehler beim Verarbeiten des Geburtsdatums: invalide Zeichen eingegeben! {ex.Message}";
-            return false;
+            return OperationResult.FailureResult($"Fehler beim Verarbeiten des Geburtsdatums: invalide Zeichen eingegeben! {ex.Message}");
         }
-        using (var connection = _connectionFactory.CreateConnection())
+        
+        using (var connection = await _connectionFactory.CreateConnection())
         {
-            connection.Open();
+            await connection.OpenAsync();
             var Sql_maxID = "SELECT MAX(Id) FROM Mitarbeiter;";
-            var maxId = connection.ExecuteScalar<int>(Sql_maxID);
+            var maxId = await connection.ExecuteScalarAsync<int>(Sql_maxID);
             int newId = maxId + 1;
 
             var sql_Add = "INSERT INTO Mitarbeiter (Id,FirstName, LastName, Birthdate, IsActive) VALUES (@Id, @FirstName, @LastName, @Birthdate, @IsActive);";
-            connection.Execute(sql_Add, new
+            await connection.ExecuteAsync(sql_Add, new
             {
                 Id = newId,
                 FirstName = mitarbeiter.FirstName,
@@ -228,34 +225,28 @@ public class MitarbeiterRepository : IMitarbeiterRepository
                 Birthdate = date.ToString("yyyy-MM-dd"),
                 IsActive = mitarbeiter.IsActive
             });
-
         }
 
         Console.WriteLine($"Mitarbeiter mit ID {mitarbeiter.id} hinzugefügt.");
-
-        errorMessage = null;
-        return true;
+        return OperationResult.SuccessResult();
     }
 
-    public bool Update(int id, Mitarbeiter? mitarbeiter, out string? errorMessage)
+    public async Task<OperationResult> Update(int id, Mitarbeiter? mitarbeiter)
     {
         try
         {
             if (mitarbeiter == null)
             {
-                errorMessage = "Mitarbeiterdaten sind korrumpiert oder leer.";
-                return false;
+                return OperationResult.FailureResult("Mitarbeiterdaten sind korrumpiert oder leer.");
             }
 
             if (string.IsNullOrWhiteSpace(mitarbeiter.FirstName) || string.IsNullOrWhiteSpace(mitarbeiter.LastName))
             {
-                errorMessage = "Ein Vorname und ein Nachname sind erforderlich.";
-                return false;
+                return OperationResult.FailureResult("Ein Vorname und ein Nachname sind erforderlich.");
             }
             else if (string.IsNullOrWhiteSpace(mitarbeiter.BirthDate.ToString()))
             {
-                errorMessage = "Ein Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.";
-                return false;
+                return OperationResult.FailureResult("Ein Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.");
             }
             else if (string.IsNullOrWhiteSpace(mitarbeiter.BirthDate) ||
                 DateOnly.TryParseExact(
@@ -266,19 +257,17 @@ public class MitarbeiterRepository : IMitarbeiterRepository
                     out DateOnly dateParsed
                 ) == false)
             {
-                errorMessage = "Ein gültiges Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.";
-                return false;
+                return OperationResult.FailureResult("Ein gültiges Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.");
             }
         }
         catch (FormatException ex)
         {
-            errorMessage = $"Fehler beim Verarbeiten des Geburtsdatums: invalide Zeichen eingegeben! // {ex.Message}";
-            return false;
+            return OperationResult.FailureResult($"Fehler beim Verarbeiten des Geburtsdatums: invalide Zeichen eingegeben! // {ex.Message}");
         }
 
-        using (var connection = _connectionFactory.CreateConnection())
+        using (var connection = await _connectionFactory.CreateConnection())
         {
-            connection.Open();
+            await connection.OpenAsync();
 
             // 1. Prüfen ob andere Mitarbeiter mit gleichen Daten existieren (außer dem aktuellen)
             var duplicateCheckSql = @"
@@ -288,7 +277,7 @@ public class MitarbeiterRepository : IMitarbeiterRepository
         AND Birthdate = @Birthdate 
         AND Id != @Id";
 
-            var duplicateCount = connection.ExecuteScalar<int>(duplicateCheckSql, new
+            var duplicateCount = await connection.ExecuteScalarAsync<int>(duplicateCheckSql, new
             {
                 FirstName = mitarbeiter.FirstName,
                 LastName = mitarbeiter.LastName,
@@ -298,16 +287,15 @@ public class MitarbeiterRepository : IMitarbeiterRepository
 
             if (duplicateCount > 0)
             {
-                errorMessage = "Ein anderer Mitarbeiter mit den gleichen Daten existiert bereits unter anderer ID";
-                return false;
+                return OperationResult.FailureResult("Ein anderer Mitarbeiter mit den gleichen Daten existiert bereits unter anderer ID");
             }
         }
 
-        using (var connection = _connectionFactory.CreateConnection())
+        using (var connection = await _connectionFactory.CreateConnection())
         {
-            connection.Open();
+            await connection.OpenAsync();
             var sql_Update = "UPDATE Mitarbeiter SET FirstName = @FirstName, LastName = @LastName, Birthdate = @Birthdate, IsActive = @IsActive WHERE Id = @Id;";
-            var updateresult = connection.Execute(sql_Update, new
+            var updateresult = await connection.ExecuteAsync(sql_Update, new
             {
                 Id = id,
                 FirstName = mitarbeiter.FirstName,
@@ -316,34 +304,44 @@ public class MitarbeiterRepository : IMitarbeiterRepository
                 IsActive = mitarbeiter.IsActive
             });
 
-            errorMessage = updateresult > 0 ? null : $"Mitarbeiter konnte nicht aktualisiert werden, da diese Id = {id} nicht existiert";
             if (updateresult == 0)
             {
-                return false;
+                return OperationResult.FailureResult($"Mitarbeiter konnte nicht aktualisiert werden, da diese Id = {id} nicht existiert");
             }
-
         }
+        
         Console.WriteLine($"Mitarbeiter mit ID {id} aktualisiert.");
-        return true;
+        return OperationResult.SuccessResult();
     }
 
 
-    public bool Delete(int id, out string? errorMessage)
+    public async Task<OperationResult> Delete(int id)
     {
-        using (var connection = _connectionFactory.CreateConnection())
+        using (var connection = await _connectionFactory.CreateConnection())
         {
-            connection.Open();
+            await connection.OpenAsync();
             var sql_Delete = "DELETE FROM Mitarbeiter WHERE Id = @Id;";
 
-
-            if (connection.Execute(sql_Delete, new { Id = id }) > 0)
+            var deletedRows = await connection.ExecuteAsync(sql_Delete, new { Id = id });
+            
+            if (deletedRows > 0)
             {
                 Console.WriteLine($"Mitarbeiter mit ID {id} gelöscht.");
-                errorMessage = null;
-                return true;
+                return OperationResult.SuccessResult();
+            }
+            else
+            {
+                return OperationResult.FailureResult($"Mitarbeiter konnte nicht gelöscht werden, da diese Id = {id} nicht existiert.");
             }
         }
-        errorMessage = $"Mitarbeiter konnte nicht gelöscht werden, da diese Id = {id} nicht existiert.";
-        return false;
     }
+    
+    private async Task<bool> CheckDuplicateAsync(Mitarbeiter mitarbeiter)
+{
+    var allMitarbeiter = await GetAll();
+    return allMitarbeiter.Any(m => 
+        m.FirstName == mitarbeiter.FirstName && 
+        m.LastName == mitarbeiter.LastName && 
+        m.BirthDate == mitarbeiter.BirthDate);
+}
 }

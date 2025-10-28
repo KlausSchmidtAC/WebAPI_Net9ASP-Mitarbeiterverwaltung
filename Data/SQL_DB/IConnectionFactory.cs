@@ -3,5 +3,5 @@ using MySql.Data.MySqlClient;
 
 public interface IConnectionFactory
 {
-    MySqlConnection CreateConnection();
+    Task<MySqlConnection> CreateConnection();
 }

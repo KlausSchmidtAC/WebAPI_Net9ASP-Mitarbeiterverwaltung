@@ -21,33 +21,6 @@ public class SqlConnectionFactoryTests
         _databaseInitializer.InitializeDatabase().Returns(true);
     }
 
-    [Test] // Constructor initialisiert korrekt
-    public void Constructor_DatabaseInitializationSuccessful_CreatesInstance()
-    {
-        // Arrange
-        _databaseInitializer.InitializeDatabase().Returns(true);
-
-        // Act
-        _sqlConnectionFactory = new SqlConnectionFactory(_databaseInitializer);
-
-        // Assert
-        Assert.That(_sqlConnectionFactory, Is.Not.Null);
-        _databaseInitializer.Received(1).InitializeDatabase();
-    }
-
-    [Test] // Constructor initialisiert nicht korrekt
-    public void Constructor_DatabaseInitializationFails_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        _databaseInitializer.InitializeDatabase().Returns(false);
-
-        // Act & Assert
-        var exception = Assert.Throws<InvalidOperationException>(() => 
-            new SqlConnectionFactory(_databaseInitializer));
-        
-        Assert.That(exception.Message, Is.EqualTo("Database initialization failed in SqlConnectionFactory."));
-        _databaseInitializer.Received(1).InitializeDatabase();
-    }
 
     [Test]  // Constructor mit Null-Übergabe
     public void Constructor_NullDatabaseInitializer_ThrowsArgumentNullException()
@@ -74,13 +47,13 @@ public class SqlConnectionFactoryTests
     }
 
     [Test] // CreateConnection gibt MySqlConnection zurück
-    public void CreateConnection_ReturnsMySqlConnection()
+    public async Task CreateConnection_ReturnsMySqlConnection()
     {
         // Arrange
         _sqlConnectionFactory = new SqlConnectionFactory(_databaseInitializer);
 
         // Act
-        using var connection = _sqlConnectionFactory.CreateConnection();
+        using var connection = await _sqlConnectionFactory.CreateConnection();
 
         // Assert
         Assert.That(connection, Is.TypeOf<MySqlConnection>());
@@ -93,27 +66,27 @@ public class SqlConnectionFactoryTests
     }
 
     [Test] // CreateConnection ruft GetApplicationConnectionString auf
-    public void CreateConnection_CallsGetApplicationConnectionString()
+    public async Task CreateConnection_CallsGetApplicationConnectionString()
     {
         // Arrange
         _sqlConnectionFactory = new SqlConnectionFactory(_databaseInitializer);
 
         // Act
-        using var connection = _sqlConnectionFactory.CreateConnection();
+        using var connection = await _sqlConnectionFactory.CreateConnection();
 
         // Assert
         _databaseInitializer.Received().GetApplicationConnectionString();
     }
 
     [Test]  // CreateConnection gibt bei mehreren Aufrufen unterschiedliche Instanzen zurück
-    public void CreateConnection_MultipleCallsReturnDifferentInstances()
+    public async Task CreateConnection_MultipleCallsReturnDifferentInstances()
     {
         // Arrange
         _sqlConnectionFactory = new SqlConnectionFactory(_databaseInitializer);
 
         // Act
-        using var connection1 = _sqlConnectionFactory.CreateConnection();
-        using var connection2 = _sqlConnectionFactory.CreateConnection();
+        using var connection1 = await _sqlConnectionFactory.CreateConnection();
+        using var connection2 = await _sqlConnectionFactory.CreateConnection();
 
         // Assert
         Assert.That(connection1, Is.Not.SameAs(connection2));

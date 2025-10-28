@@ -20,11 +20,11 @@ namespace WebAPI_NET9.Controllers
         }
 
         [HttpGet]
-        public ActionResult<IEnumerable<Mitarbeiter>> GetAll()
+        public async Task<ActionResult<IEnumerable<Mitarbeiter>>> GetAll()
         {
             // _logger.LogInformation("GetAll aufgerufen");
 
-            var mitarbeiterListe = _mitarbeiterService.GetAllMitarbeiter().ToList();
+            var mitarbeiterListe = (await _mitarbeiterService.GetAllMitarbeiter()).ToList();
             if (mitarbeiterListe.Count == 0)
             {
                 // _logger.LogWarning("Keine Mitarbeiter in der Liste.");
@@ -43,13 +43,13 @@ namespace WebAPI_NET9.Controllers
 
 
         [HttpGet("search")]
-        public ActionResult<IEnumerable<Mitarbeiter>> GetSorted([FromQuery] string? search)
+        public async Task<ActionResult<IEnumerable<Mitarbeiter>>> GetSorted([FromQuery] string? search)
         {
             if (string.IsNullOrWhiteSpace(search))
             {
                 return NotFound("Bitte einen gültigen Mitarbeiterfilter eingegeben.");
             }
-            var nullOrList = _mitarbeiterService.SearchMitarbeiter(search);
+            var nullOrList = await _mitarbeiterService.SearchMitarbeiter(search);
             var mitarbeiterListe = (nullOrList != null) ? nullOrList.ToList() : null;
 
             if(mitarbeiterListe == null)
@@ -86,14 +86,14 @@ namespace WebAPI_NET9.Controllers
         }
 
         [HttpGet("{id}")]
-        public ActionResult<Mitarbeiter> GetMitarbeiter([FromRoute] int id)
+        public async Task<ActionResult<Mitarbeiter>> GetMitarbeiter([FromRoute] int id)
         {
             if (id <= 0 || id > int.MaxValue)
             {
                 return BadRequest("Unzulässige ID");
             }
 
-            var mitarbeiter = _mitarbeiterService.GetMitarbeiterById(id);
+            var mitarbeiter = await _mitarbeiterService.GetMitarbeiterById(id);
             
             if (mitarbeiter == null)
             {
@@ -104,14 +104,14 @@ namespace WebAPI_NET9.Controllers
         }
 
         [HttpGet("birthDate")]
-        public ActionResult<IEnumerable<Mitarbeiter>> GetByDate([FromQuery] string? birthDate)
+        public async Task<ActionResult<IEnumerable<Mitarbeiter>>> GetByDate([FromQuery] string? birthDate)
         {
             if (string.IsNullOrWhiteSpace(birthDate))
             {
                 return BadRequest("Ungültiges Datumsformat bzw. Eingabe eines Datums. Bitte verwenden Sie 'yyyy-MM-dd'.");
             }
 
-            var listOrNull = _mitarbeiterService.SearchMitarbeiter(birthDate);
+            var listOrNull = await _mitarbeiterService.SearchMitarbeiter(birthDate);
             var aeltereMitarbeiter = (listOrNull != null) ? listOrNull.ToList() : null;
 
             if (aeltereMitarbeiter == null)
@@ -128,51 +128,49 @@ namespace WebAPI_NET9.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreateMitarbeiter([FromBody] Mitarbeiter mitarbeiter)
+        public async Task<IActionResult> CreateMitarbeiter([FromBody] Mitarbeiter mitarbeiter)
         {
-            string errorMessage = string.Empty;
-            var success = _mitarbeiterService.CreateMitarbeiter(mitarbeiter, out errorMessage);
+            var result = await _mitarbeiterService.CreateMitarbeiter(mitarbeiter);
 
-            if (!success)
+            if (!result.Success)
             {
-                return BadRequest(errorMessage);
+                return BadRequest(result.ErrorMessage);
             }
 
             return CreatedAtAction(nameof(CreateMitarbeiter), new { id = mitarbeiter.id }, mitarbeiter);
         }
 
         [HttpDelete("{id}")]
-        public IActionResult DeleteMitarbeiter([FromRoute] int id)
+        public async Task<IActionResult> DeleteMitarbeiter([FromRoute] int id)
         {
             if (id <= 0 || id > int.MaxValue)
             {
                 return BadRequest("Unzulässige ID");
             }
 
-            var success = _mitarbeiterService.DeleteMitarbeiter(id, out string? errorMessage);
+            var result = await _mitarbeiterService.DeleteMitarbeiter(id);
 
-            if (!success)
+            if (!result.Success)
             {
-                return NotFound(errorMessage);
+                return NotFound(result.ErrorMessage);
             }
 
             return Content("Mitarbeiter mit der ID " + id + " wurde deaktiviert bzw. gelöscht.");
         }
 
         [HttpPatch("{id}")]
-        public IActionResult UpdateMitarbeiter([FromRoute] int id, [FromBody] Mitarbeiter mitarbeiter)
+        public async Task<IActionResult> UpdateMitarbeiter([FromRoute] int id, [FromBody] Mitarbeiter mitarbeiter)
         {
-            string errorMessage = string.Empty;
             if (id <= 0 || id > int.MaxValue)
             {
                 return BadRequest("Unzulässige ID");
             }
 
-            var success = _mitarbeiterService.UpdateMitarbeiter(id, mitarbeiter, out errorMessage);
+            var result = await _mitarbeiterService.UpdateMitarbeiter(id, mitarbeiter);
 
-            if (!success)
+            if (!result.Success)
             {
-                return BadRequest(errorMessage);
+                return BadRequest(result.ErrorMessage);
             }
 
             return NoContent();
