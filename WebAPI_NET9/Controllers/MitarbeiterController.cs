@@ -24,20 +24,20 @@ namespace WebAPI_NET9.Controllers
         {
             // _logger.LogInformation("GetAll aufgerufen");
 
-            var mitarbeiterListe = (await _mitarbeiterService.GetAllMitarbeiter()).ToList();
-            if (mitarbeiterListe.Count == 0)
+            var operationResult = await _mitarbeiterService.GetAllMitarbeiter();
+            if (!operationResult.Success)
             {
                 // _logger.LogWarning("Keine Mitarbeiter in der Liste.");
-                return NotFound("Keine Mitarbeiter in der Liste.");
+                return NotFound(operationResult.ErrorMessage);
             }
             else
             {
-                foreach (var mitarbeiter in mitarbeiterListe)
+                foreach (var mitarbeiter in operationResult.Data)
                 {
                     Console.WriteLine(mitarbeiter.ToString());
                 }
                 // _logger.LogInformation($"{mitarbeiterListe.Count} Mitarbeiter gefunden");
-                return Ok(mitarbeiterListe);
+                return Content(String.Join(", ", operationResult.Data.ToList()));
             }
         }
 
@@ -49,40 +49,36 @@ namespace WebAPI_NET9.Controllers
             {
                 return NotFound("Bitte einen gültigen Mitarbeiterfilter eingegeben.");
             }
-            var nullOrList = await _mitarbeiterService.SearchMitarbeiter(search);
-            var mitarbeiterListe = (nullOrList != null) ? nullOrList.ToList() : null;
-
-            if(mitarbeiterListe == null)
+            var operationResult = await _mitarbeiterService.SearchMitarbeiter(search);
+    
+            if(!operationResult.Success)
             {
-                return NotFound("Ungültiger Suchfilter. Bitte 'isActive' oder 'LastName' oder ein Datum im Format 'yyyy-MM-dd' verwenden.");
+                return NotFound(operationResult.ErrorMessage);
             }
+           
             else if (search == "isActive")
             {
-                if (mitarbeiterListe.Count == 0)
+                if (operationResult.Data.Count() == 0)
                     return NotFound("Keine aktiven Mitarbeiter in der Liste.");
                 else
-                    return Ok("Alle aktiven Mitarbeiter: {" + string.Join("; ", mitarbeiterListe) + "}");
+                    return Content("Alle aktiven Mitarbeiter: {" + string.Join("; ", operationResult.Data.ToList()) + "}");
             }
 
             else if (search == "LastName")
             {
-                if (mitarbeiterListe.Count == 0)
+                if (operationResult.Data.Count() == 0)
                     return NotFound("Keine Mitarbeiter in der Liste.");
                 else
-                    return Ok("Alle Mitarbeiter nach Nachname aufsteigend alphabetisch sortiert: {" + string.Join("; ", mitarbeiterListe) + "}");
+                    return Content("Alle Mitarbeiter nach Nachname aufsteigend alphabetisch sortiert: {" + string.Join("; ", operationResult.Data.ToList()) + "}");
             }
-            else if (mitarbeiterListe.Count == 0)
-            {
-                return NotFound($"Kein Mitarbeiter mit früherem Geburtsdatum als {search} gefunden.");
-            }
-            else if (DateOnly.TryParseExact(search, "yyyy-MM-dd",
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    System.Globalization.DateTimeStyles.None, out DateOnly date))
-            {
-                return Ok($"Alle älteren Mitarbeiter ab {search}: {"{" + string.Join("; ", mitarbeiterListe) + "}"}");
-            }
-            
-            return BadRequest("Ungültiger Suchfilter oder interner Fehler.");
+            else if (operationResult.Data.Count() == 0)
+                {
+                    return NotFound($"Kein Mitarbeiter mit früherem Geburtsdatum als {search} gefunden.");
+                }
+            else
+                {
+                    return Content($"Alle älteren Mitarbeiter ab {search}: {"{" + string.Join("; ", operationResult.Data.ToList()) + "}"}");
+                }
         }
 
         [HttpGet("{id}")]
@@ -93,14 +89,14 @@ namespace WebAPI_NET9.Controllers
                 return BadRequest("Unzulässige ID");
             }
 
-            var mitarbeiter = await _mitarbeiterService.GetMitarbeiterById(id);
-            
-            if (mitarbeiter == null)
+            var operationResult = await _mitarbeiterService.GetMitarbeiterById(id);
+
+            if (!operationResult.Success)
             {
                 return NotFound($"Mitarbeiter mit der ID = {id} nicht existent.");
             }
-            
-            return Ok(mitarbeiter); // Mitarbeiter-Objekt zurückgeben, nicht String
+
+            return Content(String.Join(", ", operationResult.Data.ToString()));
         }
 
         [HttpGet("birthDate")]
@@ -111,30 +107,24 @@ namespace WebAPI_NET9.Controllers
                 return BadRequest("Ungültiges Datumsformat bzw. Eingabe eines Datums. Bitte verwenden Sie 'yyyy-MM-dd'.");
             }
 
-            var listOrNull = await _mitarbeiterService.SearchMitarbeiter(birthDate);
-            var aeltereMitarbeiter = (listOrNull != null) ? listOrNull.ToList() : null;
-
-            if (aeltereMitarbeiter == null)
+            var operationResult = await _mitarbeiterService.SearchMitarbeiter(birthDate);
+            
+            if (!operationResult.Success)
             {
-                return BadRequest("Ungültiges Datumsformat bzw. Eingabe eines Datums. Bitte verwenden Sie 'yyyy-MM-dd'.");
+                return NotFound(operationResult.ErrorMessage);
             }
 
-            if (aeltereMitarbeiter.Count == 0)
-            {
-                return NotFound($"Kein Mitarbeiter mit früherem Geburtsdatum als {birthDate} gefunden.");
-            }
-
-            return Ok(aeltereMitarbeiter); // Liste zurückgeben, nicht String
+            return Content(String.Join(", ", operationResult.Data.ToList()));
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateMitarbeiter([FromBody] Mitarbeiter mitarbeiter)
         {
-            var result = await _mitarbeiterService.CreateMitarbeiter(mitarbeiter);
+            var operationResult = await _mitarbeiterService.CreateMitarbeiter(mitarbeiter);
 
-            if (!result.Success)
+            if (!operationResult.Success)
             {
-                return BadRequest(result.ErrorMessage);
+                return BadRequest(operationResult.ErrorMessage);
             }
 
             return CreatedAtAction(nameof(CreateMitarbeiter), new { id = mitarbeiter.id }, mitarbeiter);
@@ -148,14 +138,14 @@ namespace WebAPI_NET9.Controllers
                 return BadRequest("Unzulässige ID");
             }
 
-            var result = await _mitarbeiterService.DeleteMitarbeiter(id);
+            var operationResult = await _mitarbeiterService.DeleteMitarbeiter(id);
 
-            if (!result.Success)
+            if (!operationResult.Success)
             {
-                return NotFound(result.ErrorMessage);
+                return NotFound(operationResult.ErrorMessage);
             }
 
-            return Content("Mitarbeiter mit der ID " + id + " wurde deaktiviert bzw. gelöscht.");
+            return Ok("Mitarbeiter mit der ID " + id + " wurde deaktiviert bzw. gelöscht.");
         }
 
         [HttpPatch("{id}")]
@@ -166,14 +156,14 @@ namespace WebAPI_NET9.Controllers
                 return BadRequest("Unzulässige ID");
             }
 
-            var result = await _mitarbeiterService.UpdateMitarbeiter(id, mitarbeiter);
+            var operationResult = await _mitarbeiterService.UpdateMitarbeiter(id, mitarbeiter);
 
-            if (!result.Success)
+            if (!operationResult.Success)
             {
-                return BadRequest(result.ErrorMessage);
+                return BadRequest(operationResult.ErrorMessage);
             }
 
-            return NoContent();
+            return Ok("Mitarbeiter mit der ID " + id + " wurde aktualisiert.");
         }
     }
 }

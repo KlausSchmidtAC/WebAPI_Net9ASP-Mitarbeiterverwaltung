@@ -57,7 +57,10 @@ Das Projekt folgt dem **Clean Architecture** Pattern mit klarer Trennung der Ver
 |-----------|----------|--------------|
 | `GET` | `/api/Mitarbeiter` | Alle Mitarbeiter abrufen |
 | `GET` | `/api/Mitarbeiter/{id}` | Mitarbeiter nach ID abrufen |
-| `GET` | `/api/Mitarbeiter/search?date={yyyy-MM-dd}` | Mitarbeiter mit Geburtsdatum vor angegebenem Datum |
+| `GET` | `/api/Mitarbeiter/search?search=LastName` | Mitarbeiter nach Nachnamen aufsteigend sortiert |
+| `GET` | `/api/Mitarbeiter/search?search=isActive` | Alle aktiven Mitarbeiter |
+| `GET` | `/api/Mitarbeiter/search?search={yyyy-MM-dd}` | Mitarbeiter mit Geburtsdatum vor angegebenem Datum |
+| `GET` | `/api/Mitarbeiter/birthDate?birthDate={yyyy-MM-dd}`| Mitarbeiter mit Geburtsdatum vor angegebenem Datum |
 | `POST` | `/api/Mitarbeiter` | Neuen Mitarbeiter erstellen |
 | `PUT` | `/api/Mitarbeiter/{id}` | Mitarbeiter aktualisieren |
 | `DELETE` | `/api/Mitarbeiter/{id}` | Mitarbeiter deaktivieren |
@@ -68,7 +71,7 @@ Das Projekt folgt dem **Clean Architecture** Pattern mit klarer Trennung der Ver
 POST /api/Mitarbeiter
 {
   "id": 0,
-  "firstName": "Max",
+  "firstName": "Fritz",
   "lastName": "Mustermann", 
   "birthDate": "1990-05-15",
   "isActive": true
@@ -82,7 +85,7 @@ POST /api/Mitarbeiter
   "id": 1,
   "firstName": "Max",
   "lastName": "Mustermann",
-  "birthDate": "1990-05-15", 
+  "birthDate": "1985-05-15", 
   "isActive": true
 }
 ```

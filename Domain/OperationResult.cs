@@ -8,7 +8,7 @@ public class OperationResult
     public bool Success { get; private set; }
     public string? ErrorMessage { get; private set; }
 
-    public OperationResult(bool success, string? errorMessage = null)
+    protected OperationResult(bool success, string? errorMessage = null)    
     {
         Success = success;
         ErrorMessage = errorMessage;
@@ -28,6 +28,8 @@ public class OperationResult
 /// <summary>
 /// Generische Version für Operationen mit Rückgabewert
 /// </summary>
+/// <typeparam name="T">Typ des Rückgabewerts</typeparam>   
+
 public class OperationResult<T> : OperationResult
 {
     public T? Data { get; private set; }

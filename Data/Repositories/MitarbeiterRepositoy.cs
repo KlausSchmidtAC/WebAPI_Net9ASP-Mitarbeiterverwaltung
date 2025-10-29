@@ -15,13 +15,13 @@ public class MitarbeiterRepository : IMitarbeiterRepository
         
     }
 
-    public async Task<IEnumerable<Mitarbeiter>> GetAll()
+    public async Task<OperationResult<IEnumerable<Mitarbeiter>>> GetAll()
     {
         using (var connection = await _connectionFactory.CreateConnection())
         {
             await connection.OpenAsync();
 
-            /** "Langer Weg" mit MySqlCommand und MySqlDataReader. Kurze Syntax aber mit Dapper! 
+            /** "Langer Weg" mit MySqlCommand und MySqlDataReader. Kurze Syntax aber mit Dapper VIEL besser! 
 
             using (var command = connection.CreateCommand()) {
                 command.CommandText = "SELECT * FROM Mitarbeiter";
@@ -54,12 +54,15 @@ public class MitarbeiterRepository : IMitarbeiterRepository
                 ((DateTime)row.Birthdate).ToString("yyyy-MM-dd"),
                 (bool)row.IsActive
             )).ToList();
-
-            return mitarbeiter;
+            if (mitarbeiter.Count == 0)
+            {
+                return OperationResult<IEnumerable<Mitarbeiter>>.FailureResult("Keine Mitarbeiter gefunden.");
+            }
+            return OperationResult<IEnumerable<Mitarbeiter>>.SuccessResult(mitarbeiter);
         }
     }
 
-    public async Task<Mitarbeiter?> GetById(int id)
+    public async Task<OperationResult<Mitarbeiter>> GetById(int id)
     {
         using (var connection = await _connectionFactory.CreateConnection())
         {
@@ -74,21 +77,20 @@ public class MitarbeiterRepository : IMitarbeiterRepository
                 }
             );
 
-
             if (rawData == null)
-                return null;
+                return OperationResult<Mitarbeiter>.FailureResult($"Mitarbeiter mit der ID = {id} nicht existent.");
 
-            return new Mitarbeiter(
+            return OperationResult<Mitarbeiter>.SuccessResult(new Mitarbeiter(
                 (int)rawData.Id,
                 (string)rawData.FirstName,
                 (string)rawData.LastName,
                 ((DateTime)rawData.Birthdate).ToString("yyyy-MM-dd"),
                 (bool)rawData.IsActive
-            );
+            )); 
         }
     }
 
-    public async Task<IEnumerable<Mitarbeiter>?> Search(string search)
+    public async Task<OperationResult<IEnumerable<Mitarbeiter>>> Search(string search)
     {
         try
         {
@@ -109,7 +111,7 @@ public class MitarbeiterRepository : IMitarbeiterRepository
                         ((DateTime)row.Birthdate).ToString("yyyy-MM-dd"),
                         (bool)row.IsActive
                     )).ToList();
-                    return mitarbeiter;
+                    return OperationResult<IEnumerable<Mitarbeiter>>.SuccessResult(mitarbeiter);
                 }
             }
             else if (search == "LastName")
@@ -128,7 +130,7 @@ public class MitarbeiterRepository : IMitarbeiterRepository
                         ((DateTime)row.Birthdate).ToString("yyyy-MM-dd"),
                         (bool)row.IsActive
                     )).ToList();
-                    return mitarbeiter;
+                    return OperationResult<IEnumerable<Mitarbeiter>>.SuccessResult(mitarbeiter);
                 }
             }
             else if (DateOnly.TryParseExact(search, "yyyy-MM-dd",
@@ -152,16 +154,14 @@ public class MitarbeiterRepository : IMitarbeiterRepository
                         ((DateTime)row.Birthdate).ToString("yyyy-MM-dd"),
                         (bool)row.IsActive
                     )).ToList();
-                    return mitarbeiter;
+                    return OperationResult<IEnumerable<Mitarbeiter>>.SuccessResult(mitarbeiter);
                 }
             }
-            Console.WriteLine("Fehler beim Verarbeiten des Suchfilters!");
-            return null;
+            return OperationResult<IEnumerable<Mitarbeiter>>.FailureResult("Ungültiger Suchfilter. Bitte 'isActive' oder 'LastName' oder ein Datum im Format 'yyyy-MM-dd' verwenden.");
         }
         catch (FormatException)
         {
-            Console.WriteLine("Fehler beim Verarbeiten des Geburtsdatums: invalide Zeichen eingegeben!");
-            return null;
+            return OperationResult<IEnumerable<Mitarbeiter>>.FailureResult("Fehler beim Verarbeiten des Geburtsdatums: invalide Zeichen eingegeben!");
         }
     }
 
@@ -316,7 +316,9 @@ public class MitarbeiterRepository : IMitarbeiterRepository
 
 
     public async Task<OperationResult> Delete(int id)
-    {
+    {   
+
+        // ToDO: Eventuell alle anderen Ids eins heruntersetzen? 
         using (var connection = await _connectionFactory.CreateConnection())
         {
             await connection.OpenAsync();
@@ -338,10 +340,10 @@ public class MitarbeiterRepository : IMitarbeiterRepository
     
     private async Task<bool> CheckDuplicateAsync(Mitarbeiter mitarbeiter)
 {
-    var allMitarbeiter = await GetAll();
-    return allMitarbeiter.Any(m => 
+    var operationResult = await GetAll();
+    return operationResult.Data?.Any(m => 
         m.FirstName == mitarbeiter.FirstName && 
         m.LastName == mitarbeiter.LastName && 
-        m.BirthDate == mitarbeiter.BirthDate);
+        m.BirthDate == mitarbeiter.BirthDate) ?? false;
 }
 }

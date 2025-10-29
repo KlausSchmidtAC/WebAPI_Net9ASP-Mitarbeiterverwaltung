@@ -12,17 +12,17 @@ public class MitarbeiterService : IMitarbeiterService
         _mitarbeiterRepository = mitarbeiterRepository;
     }
 
-    public Task<IEnumerable<Mitarbeiter>> GetAllMitarbeiter()
+    public Task<OperationResult<IEnumerable<Mitarbeiter>>> GetAllMitarbeiter()
     {
         return _mitarbeiterRepository.GetAll();
     }
 
-    public Task<Mitarbeiter?> GetMitarbeiterById(int id)
+    public Task<OperationResult<Mitarbeiter>> GetMitarbeiterById(int id)
     {
         return _mitarbeiterRepository.GetById(id);
     }
 
-    public Task<IEnumerable<Mitarbeiter>?> SearchMitarbeiter(string search)
+    public Task<OperationResult<IEnumerable<Mitarbeiter>>> SearchMitarbeiter(string search)
     {
         return _mitarbeiterRepository.Search(search);
     }
