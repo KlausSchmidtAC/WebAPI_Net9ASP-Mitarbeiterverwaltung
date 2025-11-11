@@ -1,10 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Domain;
 using Application;
 
 
 namespace WebAPI_NET9.Controllers
-{
+{   
     [ApiController]
     [Route("api/Mitarbeiter")]
     public class MitarbeiterController : ControllerBase
@@ -19,6 +20,7 @@ namespace WebAPI_NET9.Controllers
             // _logger.LogInformation("MitarbeiterController initialized.");
         }
 
+    
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Mitarbeiter>>> GetAll()
         {
@@ -32,7 +34,7 @@ namespace WebAPI_NET9.Controllers
             }
             else
             {
-                foreach (var mitarbeiter in operationResult.Data)
+                foreach (var mitarbeiter in operationResult.Data)   //operationResult.Success hat per Design niemals Null oder ein leeres IEnumerable als Data
                 {
                     Console.WriteLine(mitarbeiter.ToString());
                 }
@@ -41,7 +43,7 @@ namespace WebAPI_NET9.Controllers
             }
         }
 
-
+        [Authorize]
         [HttpGet("search")]
         public async Task<ActionResult<IEnumerable<Mitarbeiter>>> GetSorted([FromQuery] string? search)
         {
@@ -50,12 +52,12 @@ namespace WebAPI_NET9.Controllers
                 return NotFound("Bitte einen gültigen Mitarbeiterfilter eingegeben.");
             }
             var operationResult = await _mitarbeiterService.SearchMitarbeiter(search);
-    
-            if(!operationResult.Success)
+
+            if (!operationResult.Success)
             {
                 return NotFound(operationResult.ErrorMessage);
             }
-           
+
             else if (search == "isActive")
             {
                 if (operationResult.Data.Count() == 0)
@@ -72,15 +74,16 @@ namespace WebAPI_NET9.Controllers
                     return Content("Alle Mitarbeiter nach Nachname aufsteigend alphabetisch sortiert: {" + string.Join("; ", operationResult.Data.ToList()) + "}");
             }
             else if (operationResult.Data.Count() == 0)
-                {
-                    return NotFound($"Kein Mitarbeiter mit früherem Geburtsdatum als {search} gefunden.");
-                }
+            {
+                return NotFound($"Kein Mitarbeiter mit früherem Geburtsdatum als {search} gefunden.");
+            }
             else
-                {
-                    return Content($"Alle älteren Mitarbeiter ab {search}: {"{" + string.Join("; ", operationResult.Data.ToList()) + "}"}");
-                }
+            {
+                return Content($"Alle älteren Mitarbeiter ab {search}: {"{" + string.Join("; ", operationResult.Data.ToList()) + "}"}");
+            }
         }
 
+        [Authorize]
         [HttpGet("{id}")]
         public async Task<ActionResult<Mitarbeiter>> GetMitarbeiter([FromRoute] int id)
         {
@@ -99,6 +102,7 @@ namespace WebAPI_NET9.Controllers
             return Content(String.Join(", ", operationResult.Data.ToString()));
         }
 
+        [Authorize]
         [HttpGet("birthDate")]
         public async Task<ActionResult<IEnumerable<Mitarbeiter>>> GetByDate([FromQuery] string? birthDate)
         {
@@ -117,6 +121,7 @@ namespace WebAPI_NET9.Controllers
             return Content(String.Join(", ", operationResult.Data.ToList()));
         }
 
+        [Authorize(Policy = Domain.Constants.IdentityData.Policies.AdminOnly)]
         [HttpPost]
         public async Task<IActionResult> CreateMitarbeiter([FromBody] Mitarbeiter mitarbeiter)
         {
@@ -130,6 +135,7 @@ namespace WebAPI_NET9.Controllers
             return CreatedAtAction(nameof(CreateMitarbeiter), new { id = mitarbeiter.id }, mitarbeiter);
         }
 
+        [Authorize(Policy = Domain.Constants.IdentityData.Policies.AdminOnly)]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteMitarbeiter([FromRoute] int id)
         {
@@ -148,6 +154,7 @@ namespace WebAPI_NET9.Controllers
             return Ok("Mitarbeiter mit der ID " + id + " wurde deaktiviert bzw. gelöscht.");
         }
 
+        [Authorize(Policy = Domain.Constants.IdentityData.Policies.AdminOnly)]
         [HttpPatch("{id}")]
         public async Task<IActionResult> UpdateMitarbeiter([FromRoute] int id, [FromBody] Mitarbeiter mitarbeiter)
         {

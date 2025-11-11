@@ -53,8 +53,8 @@ public class MitarbeiterRepository : IMitarbeiterRepository
                 (string)row.LastName,
                 ((DateTime)row.Birthdate).ToString("yyyy-MM-dd"),
                 (bool)row.IsActive
-            )).ToList();
-            if (mitarbeiter.Count == 0)
+            ));
+            if (mitarbeiter.Count() == 0)
             {
                 return OperationResult<IEnumerable<Mitarbeiter>>.FailureResult("Keine Mitarbeiter gefunden.");
             }
@@ -110,7 +110,7 @@ public class MitarbeiterRepository : IMitarbeiterRepository
                         (string)row.LastName,
                         ((DateTime)row.Birthdate).ToString("yyyy-MM-dd"),
                         (bool)row.IsActive
-                    )).ToList();
+                    ));
                     return OperationResult<IEnumerable<Mitarbeiter>>.SuccessResult(mitarbeiter);
                 }
             }
@@ -129,7 +129,7 @@ public class MitarbeiterRepository : IMitarbeiterRepository
                         (string)row.LastName,
                         ((DateTime)row.Birthdate).ToString("yyyy-MM-dd"),
                         (bool)row.IsActive
-                    )).ToList();
+                    ));
                     return OperationResult<IEnumerable<Mitarbeiter>>.SuccessResult(mitarbeiter);
                 }
             }
@@ -153,7 +153,7 @@ public class MitarbeiterRepository : IMitarbeiterRepository
                         (string)row.LastName,
                         ((DateTime)row.Birthdate).ToString("yyyy-MM-dd"),
                         (bool)row.IsActive
-                    )).ToList();
+                    ));
                     return OperationResult<IEnumerable<Mitarbeiter>>.SuccessResult(mitarbeiter);
                 }
             }
