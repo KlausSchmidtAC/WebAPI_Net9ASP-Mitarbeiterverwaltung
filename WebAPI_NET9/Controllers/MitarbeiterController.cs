@@ -30,12 +30,12 @@ namespace WebAPI_NET9.Controllers
             var operationResult = await _mitarbeiterService.GetAllMitarbeiter();
             if (!operationResult.Success)
             {
-                _logger.LogWarning("Keine Mitarbeiter in der Liste.");
+                _logger.LogWarning("GetAll-Request: Keine Mitarbeiter in der Liste.");
                 return NotFound(operationResult.ErrorMessage);
             }
             else
             {
-                _logger.LogInformation(String.Format("{0} Mitarbeiter gefunden", operationResult.Data.Count()));
+                _logger.LogInformation("{MitarbeiterCount} Mitarbeiter gefunden", operationResult.Data.Count());
                 return Content(String.Join(", ", operationResult.Data.ToList()));
             }
         }
@@ -45,20 +45,25 @@ namespace WebAPI_NET9.Controllers
         public async Task<ActionResult<IEnumerable<Mitarbeiter>>> GetSorted([FromQuery] string? search)
         {
             if (string.IsNullOrWhiteSpace(search))
-            {
+            {   
+                _logger.LogWarning("GetSorted-Request: Ungültiger Mitarbeiterfilter.");
                 return NotFound("Bitte einen gültigen Mitarbeiterfilter eingegeben.");
             }
             var operationResult = await _mitarbeiterService.SearchMitarbeiter(search);
 
             if (!operationResult.Success)
-            {
+            {   
+                _logger.LogError("GetSorted-Request: Fehler bei der Mitarbeitersuche. {0}", operationResult.ErrorMessage);
                 return NotFound(operationResult.ErrorMessage);
             }
 
             else if (search == "isActive")
             {
                 if (operationResult.Data.Count() == 0)
+                {
+                    _logger.LogWarning("GetSorted-Request: Keine aktiven Mitarbeiter in der Liste.");
                     return NotFound("Keine aktiven Mitarbeiter in der Liste.");
+                }   
                 else
                     return Content("Alle aktiven Mitarbeiter: {" + string.Join("; ", operationResult.Data.ToList()) + "}");
             }
@@ -66,17 +71,30 @@ namespace WebAPI_NET9.Controllers
             else if (search == "LastName")
             {
                 if (operationResult.Data.Count() == 0)
-                    return NotFound("Keine Mitarbeiter in der Liste.");
+                {
+                    _logger.LogWarning("GetSorted-Request: Keine Mitarbeiter mit Nachnamen in der Liste.");
+                    return NotFound("Keine Mitarbeiter mit Nachnamen in der Liste.");
+                }   
                 else
                     return Content("Alle Mitarbeiter nach Nachname aufsteigend alphabetisch sortiert: {" + string.Join("; ", operationResult.Data.ToList()) + "}");
             }
             else if (operationResult.Data.Count() == 0)
-            {
+            {   
+                _logger.LogWarning("GetSorted-Request: Kein Mitarbeiter mit früherem Geburtsdatum als {0} gefunden.", search);
                 return NotFound($"Kein Mitarbeiter mit früherem Geburtsdatum als {search} gefunden.");
             }
             else
             {
-                _logger.LogInformation("Sortierte Mitarbeiter:" + String.Join(", ", operationResult.Data.ToList()));
+                if (_logger.IsEnabled(LogLevel.Debug))
+                {
+                    _logger.LogDebug("Sortierte Mitarbeiter: {MitarbeiterList}",
+                        string.Join(", ", operationResult.Data.ToList()));
+                }
+                else
+                {
+                    _logger.LogInformation("{MitarbeiterCount} Mitarbeiter gefunden", operationResult.Data.Count());
+                }
+                
                 return Content($"Alle älteren Mitarbeiter ab {search}: {"{" + string.Join("; ", operationResult.Data.ToList()) + "}"}");
             }
         }
@@ -86,14 +104,16 @@ namespace WebAPI_NET9.Controllers
         public async Task<ActionResult<Mitarbeiter>> GetMitarbeiter([FromRoute] int id)
         {
             if (id <= 0 || id > int.MaxValue)
-            {
+            {   
+                _logger.LogWarning("GetMitarbeiter-Request: Unzulässige ID {0} übergeben.", id);
                 return BadRequest("Unzulässige ID");
             }
 
             var operationResult = await _mitarbeiterService.GetMitarbeiterById(id);
 
             if (!operationResult.Success)
-            {
+            {   
+                _logger.LogError("GetMitarbeiter-Request: Fehler beim Abrufen des Mitarbeiters. {0}", operationResult.ErrorMessage);
                 return NotFound($"Mitarbeiter mit der ID = {id} nicht existent.");
             }
 
@@ -106,7 +126,8 @@ namespace WebAPI_NET9.Controllers
         public async Task<ActionResult<IEnumerable<Mitarbeiter>>> GetByDate([FromQuery] string? birthDate)
         {
             if (string.IsNullOrWhiteSpace(birthDate))
-            {
+            {   
+                _logger.LogWarning("GetByDate-Request: Ungültiges Datumsformat bzw. Eingabe eines Datums. Bitte verwenden Sie 'yyyy-MM-dd'.");
                 return BadRequest("Ungültiges Datumsformat bzw. Eingabe eines Datums. Bitte verwenden Sie 'yyyy-MM-dd'.");
             }
 
@@ -114,9 +135,18 @@ namespace WebAPI_NET9.Controllers
 
             if (!operationResult.Success)
             {
+                _logger.LogError("GetByDate-Request: Fehler bei der Mitarbeitersuche nach Geburtsdatum. {0}", operationResult.ErrorMessage);
                 return NotFound(operationResult.ErrorMessage);
             }
-            _logger.LogInformation("Mitarbeiter mit aelterem Geburtsdatum gefunden: {0}", String.Join(", ", operationResult.Data.ToList()));
+            
+            if(_logger.IsEnabled(LogLevel.Debug))
+            {
+                _logger.LogDebug("Mitarbeiter mit aelterem Geburtsdatum als {0} gefunden: {1}", birthDate, operationResult.Data.ToList());
+            }
+            else
+            {
+            _logger.LogInformation("Mitarbeiter mit aelterem Geburtsdatum gefunden: {0}", operationResult.Data.Count());
+            }
             return Content(String.Join(", ", operationResult.Data.ToList()));
         }
 
@@ -130,6 +160,7 @@ namespace WebAPI_NET9.Controllers
 
             if (!operationResult.Success)
             {
+                _logger.LogError("CreateMitarbeiter-Request: Fehler beim Erstellen des Mitarbeiters. {0}", operationResult.ErrorMessage);
                 return BadRequest(operationResult.ErrorMessage);
             }
             _logger.LogInformation("Neuer Mitarbeiter erstellt: {0}", mitarbeiter.ToString());
@@ -143,14 +174,16 @@ namespace WebAPI_NET9.Controllers
         public async Task<IActionResult> DeleteMitarbeiter([FromRoute] int id)
         {
             if (id <= 0 || id > int.MaxValue)
-            {
+            {   
+                _logger.LogWarning("DeleteMitarbeiter-Request: Ungültige ID {0}", id);
                 return BadRequest("Unzulässige ID");
             }
 
             var operationResult = await _mitarbeiterService.DeleteMitarbeiter(id);
 
             if (!operationResult.Success)
-            {
+            {   
+                _logger.LogError("DeleteMitarbeiter-Request: Fehler beim Löschen des Mitarbeiters. {0}", operationResult.ErrorMessage);
                 return NotFound(operationResult.ErrorMessage);
             }
             _logger.LogInformation("Mitarbeiter mit der ID {0} wurde deaktiviert bzw. gelöscht.", id);
@@ -164,14 +197,16 @@ namespace WebAPI_NET9.Controllers
         public async Task<IActionResult> UpdateMitarbeiter([FromRoute] int id, [FromBody] Mitarbeiter mitarbeiter)
         {
             if (id <= 0 || id > int.MaxValue)
-            {
+            {   
+                _logger.LogWarning("UpdateMitarbeiter-Request: Unzulässige ID {0}", id);
                 return BadRequest("Unzulässige ID");
             }
 
             var operationResult = await _mitarbeiterService.UpdateMitarbeiter(id, mitarbeiter);
 
             if (!operationResult.Success)
-            {
+            {   
+                _logger.LogError("UpdateMitarbeiter-Request: Fehler beim Aktualisieren des Mitarbeiters. {0}", operationResult.ErrorMessage);
                 return BadRequest(operationResult.ErrorMessage);
             }
             _logger.LogInformation("Mitarbeiter mit der ID {0} wurde aktualisiert: {1}.", id, mitarbeiter.ToString());
