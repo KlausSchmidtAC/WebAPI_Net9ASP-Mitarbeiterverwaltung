@@ -37,14 +37,4 @@ public static class IdentityData
         public const string User = "User";
         public const string Guest = "Guest";
     }
-    
-    /// <summary>
-    /// JWT Token Konfiguration
-    /// </summary>
-    public static class Token
-    {
-        public const int DefaultExpiryMinutes = 60;
-        public const string Issuer = "WebAPI_NET9";
-        public const string Audience = "WebAPI_NET9_Users";
-    }
 }

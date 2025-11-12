@@ -9,20 +9,38 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Logs;
 
 
 
 var builder = WebApplication.CreateBuilder(args);
+
+/**
 builder.Host.UseSerilog((context, configuration) =>
     configuration
         .WriteTo.Console()
         .WriteTo.File("logs/app-.log", rollingInterval: RollingInterval.Day)
         .ReadFrom.Configuration(context.Configuration));
-
-
-Console.WriteLine("Hello from .NET 9 Web API!");
+**/
 
 var jwtConfig = builder.Configuration.GetSection("JWTSettings");
+Console.WriteLine("Hello from .NET 9 Web Mitarbeiter-API!");
+
+builder.Logging.ClearProviders();
+builder.Logging.AddOpenTelemetry(options => options.AddConsoleExporter());
+
+/**
+builder.Logging.AddOpenTelemetry(options => options.AddOtlpExporter(
+a => 
+{
+    a.Endpoint = new Uri("http://localhost:5100/ingest/otlp/v1/logs");
+    a.Protocol = OtlpExportProtocol.HttpProtobuf;
+    a.Headers.Add("Authorization", "Bearer " + jwtConfig["SecretKey"]);
+}
+));
+**/
+
+
 builder.Services.AddAuthentication(x =>
 {
     x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -53,12 +71,13 @@ builder.Services.AddAuthorization(options =>
 
 
 builder.Services.AddControllers();
-
 builder.Services.AddOpenApi("WebAPI");
 builder.Services.AddEndpointsApiExplorer();
 
-//Swagger konfigurieren
+//Swagger konfigurieren, JWT Token Service für Swagger-OPEN API konfigurieren als Singleton (wird nur beim Start verwendet)
 builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton<IConfigureOptions<SwaggerGenOptions>, ConfigureSwaggerOptions>();
+
 
 // JSon Serializer Optionen konfigurieren
 builder.Services.ConfigureHttpJsonOptions(options =>    
@@ -71,10 +90,6 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddSingleton<IMitarbeiterService, MitarbeiterService>();
 builder.Services.AddSingleton<IMitarbeiterRepository, MitarbeiterRepository>();
 builder.Services.AddSingleton<IConnectionFactory, SqlConnectionFactory>();
-
-// JWT Token Service als Transient (neu für jeden einzelnen Request) registrieren
-builder.Services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwaggerOptions>();
-
 
 
 // Datenbank Initializer mit Konfigurationswerten aus appsettings.json registrieren
@@ -95,11 +110,10 @@ var app = builder.Build();
 // Middleware Area
 
 if (app.Environment.IsDevelopment())
-{
+{   
     app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI();
-    Console.WriteLine("Swagger enabled in Development environment.");
 }
 
 

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Domain;
 using Application;
+using Domain.Constants;
 
 
 namespace WebAPI_NET9.Controllers
@@ -12,33 +13,29 @@ namespace WebAPI_NET9.Controllers
     {
 
         IMitarbeiterService _mitarbeiterService;
-        // ILogger<MitarbeiterController> _logger; // optional: für Logging
-        public MitarbeiterController(IMitarbeiterService mitarbeiterService) // , ILogger<MitarbeiterController> logger)
+        ILogger<MitarbeiterController> _logger; // optional: für Logging
+        public MitarbeiterController(IMitarbeiterService mitarbeiterService, ILogger<MitarbeiterController> logger)
         {
             _mitarbeiterService = mitarbeiterService ?? throw new ArgumentNullException(nameof(mitarbeiterService));
-            // _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            // _logger.LogInformation("MitarbeiterController initialized.");
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _logger.LogInformation("MitarbeiterController initialized.");
         }
 
     
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Mitarbeiter>>> GetAll()
         {
-            // _logger.LogInformation("GetAll aufgerufen");
+            _logger.LogInformation("GetAll aufgerufen");
 
             var operationResult = await _mitarbeiterService.GetAllMitarbeiter();
             if (!operationResult.Success)
             {
-                // _logger.LogWarning("Keine Mitarbeiter in der Liste.");
+                _logger.LogWarning("Keine Mitarbeiter in der Liste.");
                 return NotFound(operationResult.ErrorMessage);
             }
             else
             {
-                foreach (var mitarbeiter in operationResult.Data)   //operationResult.Success hat per Design niemals Null oder ein leeres IEnumerable als Data
-                {
-                    Console.WriteLine(mitarbeiter.ToString());
-                }
-                // _logger.LogInformation($"{mitarbeiterListe.Count} Mitarbeiter gefunden");
+                _logger.LogInformation(String.Format("{0} Mitarbeiter gefunden", operationResult.Data.Count()));
                 return Content(String.Join(", ", operationResult.Data.ToList()));
             }
         }
@@ -79,6 +76,7 @@ namespace WebAPI_NET9.Controllers
             }
             else
             {
+                _logger.LogInformation("Sortierte Mitarbeiter:" + String.Join(", ", operationResult.Data.ToList()));
                 return Content($"Alle älteren Mitarbeiter ab {search}: {"{" + string.Join("; ", operationResult.Data.ToList()) + "}"}");
             }
         }
@@ -99,6 +97,7 @@ namespace WebAPI_NET9.Controllers
                 return NotFound($"Mitarbeiter mit der ID = {id} nicht existent.");
             }
 
+            _logger.LogInformation("Mitarbeiter mit ID {0} gefunden: {1}", id, operationResult.Data);
             return Content(String.Join(", ", operationResult.Data.ToString()));
         }
 
@@ -112,16 +111,18 @@ namespace WebAPI_NET9.Controllers
             }
 
             var operationResult = await _mitarbeiterService.SearchMitarbeiter(birthDate);
-            
+
             if (!operationResult.Success)
             {
                 return NotFound(operationResult.ErrorMessage);
             }
-
+            _logger.LogInformation("Mitarbeiter mit aelterem Geburtsdatum gefunden: {0}", String.Join(", ", operationResult.Data.ToList()));
             return Content(String.Join(", ", operationResult.Data.ToList()));
         }
 
-        [Authorize(Policy = Domain.Constants.IdentityData.Policies.AdminOnly)]
+        // [Authorize(Policy = Domain.Constants.IdentityData.Policies.AdminOnly)]
+        [Authorize]
+        [RequiresClaim(IdentityData.Claims.AdminRole, "true")]
         [HttpPost]
         public async Task<IActionResult> CreateMitarbeiter([FromBody] Mitarbeiter mitarbeiter)
         {
@@ -131,11 +132,13 @@ namespace WebAPI_NET9.Controllers
             {
                 return BadRequest(operationResult.ErrorMessage);
             }
-
+            _logger.LogInformation("Neuer Mitarbeiter erstellt: {0}", mitarbeiter.ToString());
             return CreatedAtAction(nameof(CreateMitarbeiter), new { id = mitarbeiter.id }, mitarbeiter);
         }
 
-        [Authorize(Policy = Domain.Constants.IdentityData.Policies.AdminOnly)]
+        // [Authorize(Policy = Domain.Constants.IdentityData.Policies.AdminOnly)]
+        [Authorize]
+        [RequiresClaim(IdentityData.Claims.AdminRole, "true")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteMitarbeiter([FromRoute] int id)
         {
@@ -150,11 +153,13 @@ namespace WebAPI_NET9.Controllers
             {
                 return NotFound(operationResult.ErrorMessage);
             }
-
+            _logger.LogInformation("Mitarbeiter mit der ID {0} wurde deaktiviert bzw. gelöscht.", id);
             return Ok("Mitarbeiter mit der ID " + id + " wurde deaktiviert bzw. gelöscht.");
         }
 
-        [Authorize(Policy = Domain.Constants.IdentityData.Policies.AdminOnly)]
+        // [Authorize(Policy = Domain.Constants.IdentityData.Policies.AdminOnly)]
+        [Authorize]
+        [RequiresClaim(IdentityData.Claims.AdminRole, "true")]
         [HttpPatch("{id}")]
         public async Task<IActionResult> UpdateMitarbeiter([FromRoute] int id, [FromBody] Mitarbeiter mitarbeiter)
         {
@@ -169,7 +174,7 @@ namespace WebAPI_NET9.Controllers
             {
                 return BadRequest(operationResult.ErrorMessage);
             }
-
+            _logger.LogInformation("Mitarbeiter mit der ID {0} wurde aktualisiert: {1}.", id, mitarbeiter.ToString());
             return Ok("Mitarbeiter mit der ID " + id + " wurde aktualisiert.");
         }
     }

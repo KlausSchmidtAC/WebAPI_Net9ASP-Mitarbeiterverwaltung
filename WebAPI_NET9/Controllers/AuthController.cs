@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.Json;
 using Domain; 
 
-// TODO: Fertig machen!! Claims, Rollen, etc. noch nicht vertsanden und auch nicht Namerspace!! 
+
 
 
 [ApiController]
@@ -33,7 +33,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("token")]
-    public IActionResult CreateToken([FromBody]TokenGenerationRequest request) // IST MIR NOCH UNVERSTAENDLICH!! 
+    public IActionResult CreateToken([FromBody]TokenGenerationRequest request) 
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.ASCII.GetBytes(TokenSecret);
@@ -41,12 +41,12 @@ public class AuthController : ControllerBase
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new(JwtRegisteredClaimNames.Sub, request.Email),
+            new(JwtRegisteredClaimNames.Sub, request.Username),
             new(JwtRegisteredClaimNames.Email, request.Email),
             new("userId", request.UserId.ToString())
         };
 
-        // ✅ LÖSUNG: JsonElement aus JSON-Deserialisierung verwenden
+        
         foreach(var claimPair in request.CustomClaims)
         {
             if (claimPair.Value is JsonElement jsonElement)
@@ -62,7 +62,6 @@ public class AuthController : ControllerBase
             }
             else
             {
-                // Fallback für normale Werte
                 claims.Add(new Claim(claimPair.Key, claimPair.Value?.ToString() ?? ""));
             }
         }
@@ -71,8 +70,8 @@ public class AuthController : ControllerBase
         {
             Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.Add(TokenLifetime),
-            Issuer = "http://localhost:5100", // Set your issuer here
-            Audience = "http://localhost:5100", // Set your audience here
+            Issuer = "http://localhost:5100",
+            Audience = "http://localhost:5100",
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
         var token = tokenHandler.CreateToken(tokenDescriptor);
