@@ -1,5 +1,4 @@
 using WebAPI_NET9;
-using Domain;
 using Application;
 using Data.Repositories; 
 using Data.SQL_DB;
@@ -8,37 +7,53 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Swashbuckle.AspNetCore.SwaggerGen;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Options; 
 using OpenTelemetry.Logs;
-
+using OpenTelemetry.Exporter;
+using System.Net;
+using OpenTelemetry.Resources;
 
 
 var builder = WebApplication.CreateBuilder(args);
 
-/**
-builder.Host.UseSerilog((context, configuration) =>
-    configuration
-        .WriteTo.Console()
-        .WriteTo.File("logs/app-.log", rollingInterval: RollingInterval.Day)
-        .ReadFrom.Configuration(context.Configuration));
-**/
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Listen(IPAddress.Any, 5100); // HTTP
+    serverOptions.Listen(IPAddress.Any, 5101, listenOptions =>
+    {
+        listenOptions.UseHttps(); // HTTPS
+    });
+});
 
 var jwtConfig = builder.Configuration.GetSection("JWTSettings");
 Console.WriteLine("Hello from .NET 9 Web Mitarbeiter-API!");
 
-builder.Logging.ClearProviders();
-builder.Logging.AddOpenTelemetry(options => options.AddConsoleExporter());
 
-/**
-builder.Logging.AddOpenTelemetry(options => options.AddOtlpExporter(
-a => 
+
+builder.Logging.ClearProviders();
+
+//OTLP Exporter anstatt Console-Logging
+builder.Logging.AddOpenTelemetry(options =>
 {
-    a.Endpoint = new Uri("http://localhost:5100/ingest/otlp/v1/logs");
-    a.Protocol = OtlpExportProtocol.HttpProtobuf;
-    a.Headers.Add("Authorization", "Bearer " + jwtConfig["SecretKey"]);
-}
-));
-**/
+    options.SetResourceBuilder(ResourceBuilder.CreateEmpty().AddService("WebAPI_NET9_MitarbeiterService").AddAttributes(new Dictionary<string, object>
+    {
+        ["deployment.environment"] = "development",
+        ["service.version"] = "1.0.0"
+    }));
+
+    options.IncludeScopes = true;
+    options.IncludeFormattedMessage = true;
+
+    options.AddOtlpExporter(
+    exporter =>
+    {
+        exporter.Endpoint = new Uri("http://localhost:5099/ingest/otlp/v1/logs");
+        exporter.Protocol = OtlpExportProtocol.HttpProtobuf; // ← JSON statt Protobuf ? 
+        exporter.Headers = "";
+    });
+}); 
+
+Console.WriteLine("Hello from openTelemetry logging setup!");
 
 
 builder.Services.AddAuthentication(x =>
@@ -63,12 +78,14 @@ builder.Services.AddAuthentication(x =>
 });
 
 
+/**     Admin Auth Ohne Application-seitige-Policy. Nur per spezifiziertes Claim-Attribut in den Controllern
+
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(Domain.Constants.IdentityData.Policies.AdminOnly, policy =>
         policy.RequireClaim(Domain.Constants.IdentityData.Claims.AdminRole, "true")); // alt.:  (Domain.Constants.IdentityData.Claims.Role, Domain.Constants.IdentityData.Claims.AdminRole) 
 });
-
+**/
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi("WebAPI");
@@ -116,8 +133,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-
-app.UseHttpsRedirection();
+// In Production: 
+// app.UseHttpsRedirection();
 
 
 app.UseAuthentication(); //ACHTUNG: Reihenfolge wichtig! Erst Authentifizierung, dann Autorisierung

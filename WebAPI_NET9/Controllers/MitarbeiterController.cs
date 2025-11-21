@@ -150,7 +150,7 @@ namespace WebAPI_NET9.Controllers
             return Content(String.Join(", ", operationResult.Data.ToList()));
         }
 
-        // [Authorize(Policy = Domain.Constants.IdentityData.Policies.AdminOnly)]
+        // [Authorize(Policy = Domain.Constants.IdentityData.Policies.AdminOnly)] //Keine Policy, nur Claim-Attribut
         [Authorize]
         [RequiresClaim(IdentityData.Claims.AdminRole, "true")]
         [HttpPost]

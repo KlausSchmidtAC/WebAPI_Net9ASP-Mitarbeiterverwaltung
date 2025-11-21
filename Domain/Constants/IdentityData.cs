@@ -1,7 +1,7 @@
 namespace Domain.Constants;
 
 /// <summary>
-/// Zentrale Konstanten für Identity und Authentifizierung
+/// Zentrale Konstanten für Identität und Authentifizierung per Policy, Claims und/oder Rollen
 /// </summary>
 public static class IdentityData
 {

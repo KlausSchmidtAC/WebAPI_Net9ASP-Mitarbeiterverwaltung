@@ -52,7 +52,6 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
             Console.WriteLine("Error initializing database: " + ex.Message);
             return false;
         }
-        Console.WriteLine($"MySQL Server Database '{databaseName}' initialized successfully.");
         return true;
     }
 
@@ -85,7 +84,7 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
             {
                 await Task.FromResult(command.ExecuteNonQuery());
             }
-
+            Console.WriteLine($"MySQL Server Database '{databaseName}' initialized successfully.");
             return true;
         }
         catch (Exception ex)

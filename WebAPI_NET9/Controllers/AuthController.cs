@@ -12,7 +12,6 @@ using Domain;
 [Route("api/auth")]
 public class AuthController : ControllerBase
 {
-    private const string TokenSecret = "HaHaHaThisIsASecretKeyHaHaHaHaHaHaThisIsASecretKeyHaHaHa"; // Fügen Sie hier Ihren geheimen Schlüssel hinzu
     private static readonly TimeSpan TokenLifetime = TimeSpan.FromHours(0.25);
 
     private readonly ILogger<AuthController> _logger;
@@ -44,7 +43,7 @@ public class AuthController : ControllerBase
     {
         var jwtConfig = _configuration.GetSection("JWTSettings");
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(TokenSecret);
+        var key = Encoding.ASCII.GetBytes(jwtConfig["SecretKey"]);
 
         var claims = new List<Claim>
         {
@@ -85,7 +84,7 @@ public class AuthController : ControllerBase
         var token = tokenHandler.CreateToken(tokenDescriptor);
         var jwt = tokenHandler.WriteToken(token);
         
-        // Nur Metadaten, keine sensitiven Claim-Werte geloggt
+        // Nur Metadaten, keine sensitiven Claim-Werte werden geloggt
         _logger.LogInformation("JWT-Token erstellt für Benutzer: {Username}, Claims-Anzahl: {ClaimsCount}, Claim-Typen: {ClaimTypes} Gültig bis: {ExpiryTime}", 
             request.Username, 
             claims.Count, 

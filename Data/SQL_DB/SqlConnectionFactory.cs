@@ -20,7 +20,7 @@ public class SqlConnectionFactory : IConnectionFactory
 
     public async Task<MySqlConnection> CreateConnection()
     {
-        // Ensure initialization happens only once
+        // Ensure initialization happens only once by a semaphore!
         await _semaphore.WaitAsync();
         try
         {
