@@ -225,9 +225,10 @@ public class MitarbeiterRepository : IMitarbeiterRepository
                 Birthdate = date.ToString("yyyy-MM-dd"),
                 IsActive = mitarbeiter.IsActive
             });
-        }
+        
 
-        Console.WriteLine($"Mitarbeiter mit ID {mitarbeiter.id} hinzugefügt.");
+        // Console.WriteLine($"Mitarbeiter mit ID {newId} hinzugefügt.");
+        }
         return OperationResult.SuccessResult();
     }
 

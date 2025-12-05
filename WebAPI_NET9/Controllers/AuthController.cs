@@ -106,7 +106,7 @@ public class AuthController : ControllerBase
                 TokenType = "Bearer",
                 ExpiresIn = (int)TokenLifetime.TotalSeconds,
                 ExpiresAt = tokenDescriptor.Expires,
-                User = { ... },
+                User = request.Username,
                 ClaimsCount = claims.Count
             });
     }
