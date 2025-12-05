@@ -42,7 +42,7 @@ public class MitarbeiterRepository : IMitarbeiterRepository
             }
             **/
 
-            // Option 2: Dapper mit explizitem Column-Mapping über anonyme Objekte
+            // Dapper mit explizitem Column-Mapping über anonyme Objekte
             var rawData = await connection.QueryAsync(
                 "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Mitarbeiter"
             );
@@ -68,7 +68,7 @@ public class MitarbeiterRepository : IMitarbeiterRepository
         {
             await connection.OpenAsync();
 
-            // Option 2: Dapper mit explizitem Column-Mapping über anonyme Objekte
+            
             var rawData = await connection.QueryFirstOrDefaultAsync(
                 "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Mitarbeiter WHERE Id = @id",
                 new
@@ -319,7 +319,7 @@ public class MitarbeiterRepository : IMitarbeiterRepository
     public async Task<OperationResult> Delete(int id)
     {   
 
-        // ToDO: Eventuell alle anderen Ids eins heruntersetzen? 
+       
         using (var connection = await _connectionFactory.CreateConnection())
         {
             await connection.OpenAsync();

@@ -48,7 +48,7 @@ builder.Logging.AddOpenTelemetry(options =>
     exporter =>
     {
         exporter.Endpoint = new Uri("http://localhost:5099/ingest/otlp/v1/logs");
-        exporter.Protocol = OtlpExportProtocol.HttpProtobuf; // ← JSON statt Protobuf ? 
+        exporter.Protocol = OtlpExportProtocol.HttpProtobuf;
         exporter.Headers = "";
     });
 }); 
@@ -113,6 +113,7 @@ builder.Services.AddSingleton<IConnectionFactory, SqlConnectionFactory>();
 var dbConfig = builder.Configuration.GetSection("Database");
 builder.Services.AddSingleton<IDatabaseInitializer>(provider =>
     new SqlServerDatabaseInitializer(
+        provider.GetRequiredService<ILogger<SqlServerDatabaseInitializer>>(),
         dbConfig["ServerIP"] ?? "localhost",
         dbConfig["DatabaseName"] ?? "Mitarbeiter", 
         dbConfig["Port"] ?? "3306",

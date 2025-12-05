@@ -12,8 +12,7 @@ using System.Text.Json;
 [TestFixture]
 public class MitarbeiterControllerTests
 {
-    // still incomplete: Search LastName, UpdateMitarbeiter..
-
+    
     IMitarbeiterService _service;
     MitarbeiterController _controller;
 

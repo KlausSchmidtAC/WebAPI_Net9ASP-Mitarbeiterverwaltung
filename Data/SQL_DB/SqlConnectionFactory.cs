@@ -1,16 +1,19 @@
 namespace Data.SQL_DB; 
 using MySql.Data.MySqlClient;
+using Microsoft.Extensions.Logging;
 
-// Factory for creating MySQL database connections
+// Factory-Pattern for creating MySQL database connections
 public class SqlConnectionFactory : IConnectionFactory
 {
     private readonly IDatabaseInitializer _databaseInitializer;
+    private readonly ILogger<SqlConnectionFactory> _logger;
     private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
     private Task<bool>? _initializationTask;
 
-    public SqlConnectionFactory(IDatabaseInitializer databaseInitializer)
+    public SqlConnectionFactory(IDatabaseInitializer databaseInitializer, ILogger<SqlConnectionFactory> logger)
     {
         _databaseInitializer = databaseInitializer ?? throw new ArgumentNullException(nameof(databaseInitializer));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public string GetConnectionString()
@@ -20,7 +23,7 @@ public class SqlConnectionFactory : IConnectionFactory
 
     public async Task<MySqlConnection> CreateConnection()
     {
-        // Ensure initialization happens only once by a semaphore!
+        // semaphore stellt sicher: Initialisierung wird nur einmal ausgeführt
         await _semaphore.WaitAsync();
         try
         {
@@ -37,9 +40,11 @@ public class SqlConnectionFactory : IConnectionFactory
         var initialized = await _initializationTask;
         if (!initialized)
         {
-            Console.WriteLine("Database initialization failed in SqlConnectionFactory.");
+            _logger.LogError("Database initialization failed in SqlConnectionFactory");
             throw new InvalidOperationException("Database initialization failed in SqlConnectionFactory.");
         }
+        
+        _logger.LogDebug("Creating new MySQL connection");
         return new MySqlConnection(_databaseInitializer.GetApplicationConnectionString());
     }
 }

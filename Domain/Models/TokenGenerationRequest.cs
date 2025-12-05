@@ -9,5 +9,5 @@ public record TokenGenerationRequest
     public string Password { get; init; } = string.Empty;
     public string Email { get; init; } = string.Empty;
     public string UserId { get; init; } = string.Empty;
-    public Dictionary<string, object> CustomClaims { get; init; } = new(); // Für Claims als JSON-Key-Value-Paare
+    public Dictionary<string, object> CustomClaims { get; init; } = new(); // Claims: JSON-Key-Value-Paare
 }

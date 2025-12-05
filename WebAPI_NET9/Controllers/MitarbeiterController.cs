@@ -13,7 +13,7 @@ namespace WebAPI_NET9.Controllers
     {
 
         IMitarbeiterService _mitarbeiterService;
-        ILogger<MitarbeiterController> _logger; // optional: für Logging
+        ILogger<MitarbeiterController> _logger; 
         public MitarbeiterController(IMitarbeiterService mitarbeiterService, ILogger<MitarbeiterController> logger)
         {
             _mitarbeiterService = mitarbeiterService ?? throw new ArgumentNullException(nameof(mitarbeiterService));

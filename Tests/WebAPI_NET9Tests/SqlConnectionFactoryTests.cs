@@ -4,19 +4,22 @@ using NUnit.Framework;
 using Data.SQL_DB;
 using MySql.Data.MySqlClient;
 using System;
+using Microsoft.Extensions.Logging;
 
 [TestFixture]
 public class SqlConnectionFactoryTests
 {
-    private IDatabaseInitializer _databaseInitializer; // KEIN readonly - wird in SetUp neu gesetzt!
-    private SqlConnectionFactory? _sqlConnectionFactory; // Nullable weil erst in Tests initialisiert
-    private const string TestConnectionString = "Server=localhost;Database=Mitarbeiter;Uid=testuser;Pwd=;";
+    private IDatabaseInitializer _databaseInitializer; // NSubstitute Mock
+    private ILogger<SqlConnectionFactory> _logger; // Logger Mock
+    private SqlConnectionFactory? _sqlConnectionFactory; // Nullable: erst in Tests initialisiert
+    private const string TestConnectionString = "Server=localhost;Database=Mitarbeiter;Uid=testuser;Pwd=";
 
     [SetUp]
     public void Setup()
     {
         // NSubstitute Mock erstellen - OHNE readonly möglich
         _databaseInitializer = Substitute.For<IDatabaseInitializer>();
+        _logger = Substitute.For<ILogger<SqlConnectionFactory>>();
         _databaseInitializer.GetApplicationConnectionString().Returns(TestConnectionString);
         _databaseInitializer.InitializeDatabase().Returns(true);
     }
@@ -27,7 +30,7 @@ public class SqlConnectionFactoryTests
     {
         // Act & Assert
         var exception = Assert.Throws<ArgumentNullException>(() => 
-            new SqlConnectionFactory(null!)); // null! für Nullable-Kontext
+            new SqlConnectionFactory(null!, _logger)); // null! für Nullable-Kontext
         
         Assert.That(exception.ParamName, Is.EqualTo("databaseInitializer"));
     }
@@ -36,7 +39,7 @@ public class SqlConnectionFactoryTests
     public void GetConnectionString_ReturnsCorrectConnectionString()
     {
         // Arrange
-        _sqlConnectionFactory = new SqlConnectionFactory(_databaseInitializer);
+        _sqlConnectionFactory = new SqlConnectionFactory(_databaseInitializer, _logger);
 
         // Act
         var connectionString = _sqlConnectionFactory.GetConnectionString();
@@ -50,7 +53,7 @@ public class SqlConnectionFactoryTests
     public async Task CreateConnection_ReturnsMySqlConnection()
     {
         // Arrange
-        _sqlConnectionFactory = new SqlConnectionFactory(_databaseInitializer);
+        _sqlConnectionFactory = new SqlConnectionFactory(_databaseInitializer, _logger);
 
         // Act
         using var connection = await _sqlConnectionFactory.CreateConnection();
@@ -69,7 +72,7 @@ public class SqlConnectionFactoryTests
     public async Task CreateConnection_CallsGetApplicationConnectionString()
     {
         // Arrange
-        _sqlConnectionFactory = new SqlConnectionFactory(_databaseInitializer);
+        _sqlConnectionFactory = new SqlConnectionFactory(_databaseInitializer, _logger);
 
         // Act
         using var connection = await _sqlConnectionFactory.CreateConnection();
@@ -82,7 +85,7 @@ public class SqlConnectionFactoryTests
     public async Task CreateConnection_MultipleCallsReturnDifferentInstances()
     {
         // Arrange
-        _sqlConnectionFactory = new SqlConnectionFactory(_databaseInitializer);
+        _sqlConnectionFactory = new SqlConnectionFactory(_databaseInitializer, _logger);
 
         // Act
         using var connection1 = await _sqlConnectionFactory.CreateConnection();
