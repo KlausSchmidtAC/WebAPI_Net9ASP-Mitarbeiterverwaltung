@@ -27,7 +27,12 @@ public class AuthController : ControllerBase
     public IActionResult PublicEndpoint()
     {
         _logger.LogInformation("Öffentlicher Endpunkt aufgerufen.");
-        return Ok("This is a public endpoint accessible without authentication.");
+        return 
+        Ok(new { 
+                 Message = "Public endpoint accessed successfully",
+                AccessLevel = "Public",
+                Timestamp = DateTime.UtcNow
+            });
     }
 
     [HttpGet("protected")]
@@ -35,7 +40,11 @@ public class AuthController : ControllerBase
     public IActionResult ProtectedEndpoint()
     {   
         _logger.LogInformation("Geschützter Endpunkt aufgerufen.");
-        return Ok("This is a protected endpoint accessible only with valid authentication.");
+        return Ok(new { 
+            Message = "Protected endpoint accessed successfully",
+            AccessLevel = "Protected",
+            Timestamp = DateTime.UtcNow
+            });
     }
 
     [HttpPost("token")]
@@ -91,7 +100,15 @@ public class AuthController : ControllerBase
             string.Join(", ", claims.Select(c => c.Type)),
             tokenDescriptor.Expires?.ToString("yyyy-MM-dd HH:mm:ss UTC"));
             
-        return Ok(jwt);
+        return Ok(new {
+             Message = "Token created successfully",
+                Token = jwt,
+                TokenType = "Bearer",
+                ExpiresIn = (int)TokenLifetime.TotalSeconds,
+                ExpiresAt = tokenDescriptor.Expires,
+                User = { ... },
+                ClaimsCount = claims.Count
+            });
     }
 
     }
