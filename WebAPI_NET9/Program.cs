@@ -1,4 +1,5 @@
 using WebAPI_NET9;
+using WebAPI_NET9.Configuration;
 using Application;
 using Data.Repositories; 
 using Data.SQL_DB;
@@ -15,6 +16,20 @@ using OpenTelemetry.Resources;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ✅ EARLY CONFIGURATION VALIDATION - Fail fast on startup errors
+using var loggerFactory = LoggerFactory.Create(logging => logging.AddConsole());
+var startupLogger = loggerFactory.CreateLogger("Startup");
+
+try
+{
+    ConfigurationValidator.ValidateConfiguration(builder.Configuration, startupLogger);
+}
+catch (InvalidOperationException ex)
+{
+    startupLogger.LogCritical("❌ Application startup aborted due to configuration errors");
+    Environment.Exit(1); // Exit with error code
+}
+
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
     serverOptions.Listen(IPAddress.Any, 5100); // HTTP
@@ -25,16 +40,16 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 });
 
 var jwtConfig = builder.Configuration.GetSection("JWTSettings");
-Console.WriteLine("Hello from .NET 9 Web Mitarbeiter-API!");
+Console.WriteLine("Hello from .NET 9 Web Employee API!");
 
 
 
 builder.Logging.ClearProviders();
 
-//OTLP Exporter anstatt Console-Logging
+// OTLP Exporter instead of Console-Logging
 builder.Logging.AddOpenTelemetry(options =>
 {
-    options.SetResourceBuilder(ResourceBuilder.CreateEmpty().AddService("WebAPI_NET9_MitarbeiterService").AddAttributes(new Dictionary<string, object>
+    options.SetResourceBuilder(ResourceBuilder.CreateEmpty().AddService("WebAPI_NET9_EmployeeService").AddAttributes(new Dictionary<string, object>
     {
         ["deployment.environment"] = "development",
         ["service.version"] = "1.0.0"
@@ -52,7 +67,7 @@ builder.Logging.AddOpenTelemetry(options =>
     });
 }); 
 
-Console.WriteLine("Hello from openTelemetry logging setup!");
+Console.WriteLine("Hello from OpenTelemetry logging setup!");
 
 
 builder.Services.AddAuthentication(x =>
@@ -68,7 +83,7 @@ builder.Services.AddAuthentication(x =>
     {
         ValidIssuer = jwtConfig["Issuer"],
         ValidAudience = jwtConfig["Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtConfig["SecretKey"] ?? "default-secret-key-for-jwt-tokens")), // Null-safe Signatur für JWT-Token
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtConfig["SecretKey"] ?? "default-secret-key-for-jwt-tokens")), // Null-safe signature for JWT tokens
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateLifetime = true,
@@ -77,12 +92,12 @@ builder.Services.AddAuthentication(x =>
 });
 
 
-/**     Admin Auth Ohne Application-seitige-Policy. Nur per spezifiziertes Claim-Attribut in den Controllern
+/**     Admin Auth without application-side policy. Only via specified claim attribute in controllers
 
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(Domain.Constants.IdentityData.Policies.AdminOnly, policy =>
-        policy.RequireClaim(Domain.Constants.IdentityData.Claims.AdminRole, "true")); // alt.:  (Domain.Constants.IdentityData.Claims.Role, Domain.Constants.IdentityData.Claims.AdminRole) 
+        policy.RequireClaim(Domain.Constants.IdentityData.Claims.AdminRole, "true")); // alternative: (Domain.Constants.IdentityData.Claims.Role, Domain.Constants.IdentityData.Claims.AdminRole) 
 });
 **/
 
@@ -90,25 +105,25 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi("WebAPI");
 builder.Services.AddEndpointsApiExplorer();
 
-//Swagger konfigurieren, JWT Token Service für Swagger-OPEN API konfigurieren als Singleton (wird nur beim Start verwendet)
+// Configure Swagger, JWT Token Service for Swagger-OPEN API configured as Singleton (only used at startup)
 builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<IConfigureOptions<SwaggerGenOptions>, ConfigureSwaggerOptions>();
 
 
-// JSon Serializer Optionen konfigurieren
+// Configure JSON Serializer Options
 builder.Services.ConfigureHttpJsonOptions(options =>    
 {
    options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default); 
 });
 
-// Dependency Injection Services als Singleton (für die ganze Anwendung) registrieren
+// Register Dependency Injection Services as Singleton (for the entire application)
 
-builder.Services.AddSingleton<IMitarbeiterService, MitarbeiterService>();
-builder.Services.AddSingleton<IMitarbeiterRepository, MitarbeiterRepository>();
+builder.Services.AddSingleton<IEmployeeService, EmployeeService>();
+builder.Services.AddSingleton<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddSingleton<IConnectionFactory, SqlConnectionFactory>();
 
 
-// Datenbank Initializer mit Konfigurationswerten aus appsettings.json registrieren
+// Register Database Initializer with configuration values from appsettings.json
 var dbConfig = builder.Configuration.GetSection("Database");
 builder.Services.AddSingleton<IDatabaseInitializer>(provider =>
     new SqlServerDatabaseInitializer(
@@ -137,13 +152,13 @@ if (app.Environment.IsDevelopment())
 // app.UseHttpsRedirection();
 
 
-app.UseAuthentication(); //ACHTUNG: Reihenfolge wichtig! Erst Authentifizierung, dann Autorisierung
+app.UseAuthentication(); // IMPORTANT: Order matters! Authentication first, then Authorization
 app.UseAuthorization();
 
 
 app.MapControllers();
 
-// Endpoints und ihre Methoden auflisten
+// List endpoints and their methods
 Console.WriteLine("Available Endpoints:");
 foreach (var endpoint in app.Services.GetRequiredService<Microsoft.AspNetCore.Routing.EndpointDataSource>().Endpoints)
 {
@@ -153,7 +168,7 @@ foreach (var endpoint in app.Services.GetRequiredService<Microsoft.AspNetCore.Ro
         var httpMethods = routeEndpoint.Metadata
             .OfType<Microsoft.AspNetCore.Routing.HttpMethodMetadata>()
             .FirstOrDefault()?.HttpMethods;
-        Console.WriteLine($"Route: {routeEndpoint.RoutePattern.RawText}, Methoden: {string.Join(",", httpMethods ?? new List<string>())}");
+        Console.WriteLine($"Route: {routeEndpoint.RoutePattern.RawText}, Methods: {string.Join(",", httpMethods ?? new List<string>())}");
     }
 }
 

@@ -1,7 +1,7 @@
 ﻿namespace Domain; 
 
 
-    public class Mitarbeiter
+    public class Employee
     {
         public int id
         { get; set; }
@@ -16,7 +16,7 @@
         { get; set; }
 
 
-        public Mitarbeiter(int id, string firstName, string lastName, string birthDate, bool isActive)
+        public Employee(int id, string firstName, string lastName, string birthDate, bool isActive)
         {
             this.id = id;
 

@@ -1,6 +1,5 @@
 namespace Data.SQL_DB;
 using System;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using MySql.Data.MySqlClient;
 using Microsoft.Extensions.Logging;
 
@@ -15,7 +14,7 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
     private readonly string username;
     private readonly string password;
 
-    // Bootstrap ConnectionString (ohne spezifische Datenbank)
+    // Bootstrap ConnectionString (without specific database)
     private string BootstrapConnectionString =>
         $"Server={serverIP};Port={port};Uid={username};Pwd={password};";
 
@@ -23,7 +22,7 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
         $"Server={serverIP};Port={port};Uid={username};Pwd={password};Database={databaseName};";
 
     public SqlServerDatabaseInitializer(ILogger<SqlServerDatabaseInitializer> logger, 
-                                      string serverIP = "localhost", string databaseName = "Mitarbeiter",
+                                      string serverIP = "localhost", string databaseName = "Employees",
                                       string port = "3306", string username = "root", string password = "")
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -34,6 +33,7 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
         this.password = password;
     }
     public string GetApplicationConnectionString() => ApplicationConnectionString;
+    public string GetBootstrapConnectionString() => BootstrapConnectionString;
 
     public async Task<bool> InitializeDatabase()
     {
@@ -57,9 +57,23 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
 
             }
         }
+        catch (MySqlException ex)
+        {
+            return HandleMySqlException(ex, "initializing database");
+        }
+        catch (TimeoutException ex)
+        {
+            _logger.LogError(ex, "Timeout occurred while initializing database '{DatabaseName}'", databaseName);
+            return false;
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Connection"))
+        {
+            _logger.LogError(ex, "Connection state error while initializing database '{DatabaseName}'", databaseName);
+            return false;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error initializing database '{DatabaseName}'", databaseName);
+            _logger.LogError(ex, "Unexpected error initializing database '{DatabaseName}'", databaseName);
             return false;
         }
         
@@ -87,7 +101,7 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
             _logger.LogDebug("Switched to database '{DatabaseName}'", databaseName);
 
             var createTablesString = @"
-                CREATE TABLE IF NOT EXISTS Mitarbeiter (
+                CREATE TABLE IF NOT EXISTS employees (
                     Id INT AUTO_INCREMENT PRIMARY KEY,
                     FirstName VARCHAR(100) NOT NULL,
                     LastName VARCHAR(100) NOT NULL,
@@ -102,9 +116,13 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
             _logger.LogInformation("MySQL Server Database '{DatabaseName}' and tables initialized successfully", databaseName);
             return true;
         }
+        catch (MySqlException ex)
+        {
+            return HandleMySqlException(ex, "creating database and tables");
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating database '{DatabaseName}'", databaseName);
+            _logger.LogError(ex, "Unexpected error creating database '{DatabaseName}'", databaseName);
             return false;
         }
     }
@@ -112,7 +130,7 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
     {
         _logger.LogDebug("Checking if database '{DatabaseName}' exists", databaseName);
 
-        // ToDO: Alternative Lösung wäre über SQL-Procedure zu prüfen, ob die Datenbank existiert.
+        // Alternative Solution to check if the database exists using a SQL procedure.
         // IF DB_ID(@db) IS NULL
         //          BEGIN
         //              DECLARE @sql nvarchar(max) = N'CREATE DATABASE ' + QUOTENAME(@db) + N';';
@@ -131,11 +149,78 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
                 return exists; 
             }
         }
+        catch (MySqlException ex)
+        {
+            _logger.LogWarning(ex, "MySQL error checking database existence for '{DatabaseName}' - Error {ErrorNumber}: {ErrorMessage}", 
+                databaseName, ex.Number, ex.Message);
+            return false;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error checking database existence for '{DatabaseName}'", databaseName);
+            _logger.LogError(ex, "Unexpected error checking database existence for '{DatabaseName}'", databaseName);
             return false; 
         }
+    }
+
+    private bool HandleMySqlException(MySqlException ex, string operation)
+    {
+        switch (ex.Number)
+        {
+            case 1044: // Access denied for user to database
+                _logger.LogError(ex, "❌ Access denied while {Operation} for database '{DatabaseName}' - Check user permissions", 
+                    operation, databaseName);
+                break;
+                
+            case 1045: // Access denied for user (using password)
+                _logger.LogError(ex, "❌ Authentication failed while {Operation} - Invalid username/password for user '{Username}'", 
+                    operation, username);
+                break;
+                
+            case 1049: // Unknown database
+                _logger.LogWarning(ex, "⚠️ Database '{DatabaseName}' does not exist while {Operation} - This may be expected during initialization", 
+                    databaseName, operation);
+                break;
+                
+            case 2002: // Can't connect to local MySQL server  
+                _logger.LogError(ex, "❌ Cannot connect to MySQL server at {ServerIP}:{Port} while {Operation} - Check if MySQL is running", 
+                    serverIP, port, operation);
+                break;
+                
+            case 2003: // Can't connect to MySQL server on port
+                _logger.LogError(ex, "❌ Cannot connect to MySQL server on port {Port} while {Operation} - Check firewall/port availability", 
+                    port, operation);
+                break;
+                
+            case 1142: // Command denied to user for table
+                _logger.LogError(ex, "❌ Insufficient privileges while {Operation} - User '{Username}' lacks required permissions", 
+                    operation, username);
+                break;
+                
+            case 1050: // Table already exists
+                _logger.LogWarning(ex, "⚠️ Table already exists while {Operation} - This may be expected", operation);
+                return true; // Not necessarily an error
+                
+            case 1007: // Database already exists
+                _logger.LogInformation("ℹ️ Database '{DatabaseName}' already exists while {Operation} - Continuing", 
+                    databaseName, operation);
+                return true; // Not an error
+                
+            case 1226: // User has exceeded max_user_connections
+                _logger.LogError(ex, "❌ Too many connections while {Operation} - Connection limit reached for user '{Username}'", 
+                    operation, username);
+                break;
+                
+            case 1040: // Too many connections
+                _logger.LogError(ex, "❌ MySQL server has too many connections while {Operation} - Server overloaded", operation);
+                break;
+                
+            default:
+                _logger.LogError(ex, "❌ MySQL error {ErrorNumber} while {Operation}: {ErrorMessage}", 
+                    ex.Number, operation, ex.Message);
+                break;
+        }
+        
+        return false; // Most errors should fail the operation
     }
 
 }

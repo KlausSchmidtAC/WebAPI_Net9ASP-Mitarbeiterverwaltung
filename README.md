@@ -20,6 +20,8 @@ Eine moderne **Mitarbeiterverwaltungs-API** entwickelt mit **.NET 9** und **Clea
 - ✅ **Advanced Search & Filtering** (Name, Status, Geburtsdatum)
 - ✅ **JSON Source Generation** für optimierte Serialization
 - ✅ **Performance-optimierte Connection Factory** (3-5x schneller: 5-15ms → 1-3ms pro Request)
+- ✅ **Enterprise Configuration Validation** beim Startup mit umfassender Fehlerprüfung
+- ✅ **MySQL-spezifische Exception Handling** für granulare Fehlerbehandlung
 
 ## 🏗️ Architektur
 
@@ -265,6 +267,45 @@ public async Task<MySqlConnection> CreateConnection()
 - ✅ **Thread-Sicherheit**: Volatile `_isInitialized` Flag für Memory Visibility
 - ✅ **Clean Architecture**: Verwendet vorhandene `BootstrapConnectionString` Property
 
+### Enterprise Configuration Validation
+Umfassende Startup-Validierung für Production-Ready Deployment:
+
+```csharp
+// Automatische Konfigurationsvalidierung beim Start
+ConfigurationValidator.ValidateConfiguration(builder.Configuration, startupLogger);
+
+// Validiert alle kritischen Bereiche:
+// ✅ Database: ServerIP, Port, Username, Password
+// ✅ JWT: Issuer, Audience, SecretKey (Sicherheitsprüfung)
+// ✅ Kestrel: HTTP/HTTPS Endpunkte, Port-Konflikte
+// ✅ OpenTelemetry: OTLP Endpoint Validation
+
+// Fail-Fast Prinzip: App startet nur bei gültiger Konfiguration
+if (errors.Count > 0) {
+    logger.LogCritical("❌ Application startup aborted due to configuration errors");
+    Environment.Exit(1);
+}
+```
+
+### MySQL-spezifische Exception Handling
+Granulare Fehlerbehandlung für bessere Debugging-Erfahrung:
+
+```csharp
+private string HandleMySqlException(MySqlException ex)
+{
+    return ex.Number switch
+    {
+        1045 => "Authentication failed: Invalid username or password",
+        1049 => "Database does not exist - will be created automatically", 
+        1044 => "Access denied to database - check user permissions",
+        1062 => "Duplicate entry - record already exists",
+        1146 => "Table does not exist - database schema issue",
+        2002 => "Connection failed: MySQL server not reachable",
+        _ => $"MySQL Error {ex.Number}: {ex.Message}"
+    };
+}
+```
+
 ### OpenTelemetry OTLP Logging
 Moderne Observability mit strukturierten Logs:
 
@@ -272,7 +313,7 @@ Moderne Observability mit strukturierten Logs:
 builder.Logging.AddOpenTelemetry(options =>
 {
     options.SetResourceBuilder(ResourceBuilder.CreateEmpty()
-        .AddService("WebAPI_NET9_MitarbeiterService")
+        .AddService("WebAPI_NET9_EmployeeService")
         .AddAttributes(new Dictionary<string, object>
         {
             ["deployment.environment"] = "development",
@@ -293,7 +334,7 @@ Claims-basierte Sicherheit mit Role-Based Access Control:
 ```csharp
 [HttpPost]
 [RequiresClaim(IdentityData.Claims.AdminRole, "true")]
-public async Task<IActionResult> CreateMitarbeiter([FromBody] Mitarbeiter mitarbeiter)
+public async Task<IActionResult> CreateEmployee([FromBody] Employee employee)
 {
     // Nur Admins können Mitarbeiter erstellen
 }
@@ -306,8 +347,8 @@ Strukturierte Antworten für konsistente API-Nutzung:
 // Erfolgreiche Antwort
 return Ok(new { 
     Message = "Alle Mitarbeiter erfolgreich abgerufen.", 
-    Data = mitarbeiterList,
-    Count = mitarbeiterList.Count() 
+    Data = employeeList,
+    Count = employeeList.Count() 
 });
 
 // Fehler-Antwort
@@ -321,9 +362,9 @@ return NotFound(new {
 Das gesamte Projekt verwendet konsequent async/await für optimale Performance:
 
 ```csharp
-public async Task<OperationResult> CreateMitarbeiter(Mitarbeiter mitarbeiter)
+public async Task<OperationResult> CreateEmployee(Employee employee)
 {
-    var result = await _mitarbeiterRepository.Add(mitarbeiter);
+    var result = await _employeeRepository.Add(employee);
     return result;
 }
 ```
@@ -368,8 +409,8 @@ public async Task<MySqlConnection> CreateConnection()
 Optimierte Serialisierung mit .NET 9 Native AOT Unterstützung:
 
 ```csharp
-[JsonSerializable(typeof(Mitarbeiter))]
-[JsonSerializable(typeof(List<Mitarbeiter>))]
+[JsonSerializable(typeof(Employee))]
+[JsonSerializable(typeof(List<Employee>))]
 [JsonSerializable(typeof(TokenGenerationRequest))]
 public partial class AppJsonSerializerContext : JsonSerializerContext { }
 ```

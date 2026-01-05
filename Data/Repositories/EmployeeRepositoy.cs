@@ -5,21 +5,21 @@ using Domain;
 using Data.SQL_DB;
 using Dapper;
 
-public class MitarbeiterRepository : IMitarbeiterRepository
+public class EmployeeRepository : IEmployeeRepository
 {
     private readonly IConnectionFactory _connectionFactory;
 
-    public MitarbeiterRepository(IConnectionFactory connectionFactory)
+    public EmployeeRepository(IConnectionFactory connectionFactory)
     {
         _connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));   
         
     }
 
-    public async Task<OperationResult<IEnumerable<Mitarbeiter>>> GetAll()
+    public async Task<OperationResult<IEnumerable<Employee>>> GetAll()
     {
         using (var connection = await _connectionFactory.CreateConnection())
         {
-            await connection.OpenAsync();
+            // Connection is already opened by SqlConnectionFactory
 
             /** "Langer Weg" mit MySqlCommand und MySqlDataReader. Kurze Syntax aber mit Dapper VIEL besser! 
 
@@ -44,33 +44,33 @@ public class MitarbeiterRepository : IMitarbeiterRepository
 
             // Dapper mit explizitem Column-Mapping über anonyme Objekte
             var rawData = await connection.QueryAsync(
-                "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Mitarbeiter"
+                "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Employees"
             );
 
-            var mitarbeiter = rawData.Select(row => new Mitarbeiter(
+            var employee = rawData.Select(row => new Employee(
                 (int)row.Id,
                 (string)row.FirstName,
                 (string)row.LastName,
                 ((DateTime)row.Birthdate).ToString("yyyy-MM-dd"),
                 (bool)row.IsActive
             ));
-            if (mitarbeiter.Count() == 0)
+            if (employee.Count() == 0)
             {
-                return OperationResult<IEnumerable<Mitarbeiter>>.FailureResult("Keine Mitarbeiter gefunden.");
+                return OperationResult<IEnumerable<Employee>>.FailureResult("No employees found.");
             }
-            return OperationResult<IEnumerable<Mitarbeiter>>.SuccessResult(mitarbeiter);
+            return OperationResult<IEnumerable<Employee>>.SuccessResult(employee);
         }
     }
 
-    public async Task<OperationResult<Mitarbeiter>> GetById(int id)
+    public async Task<OperationResult<Employee>> GetById(int id)
     {
         using (var connection = await _connectionFactory.CreateConnection())
         {
-            await connection.OpenAsync();
+            // Connection is already opened by SqlConnectionFactory
 
             
             var rawData = await connection.QueryFirstOrDefaultAsync(
-                "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Mitarbeiter WHERE Id = @id",
+                "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Employees WHERE Id = @id",
                 new
                 {
                     id = id
@@ -78,9 +78,9 @@ public class MitarbeiterRepository : IMitarbeiterRepository
             );
 
             if (rawData == null)
-                return OperationResult<Mitarbeiter>.FailureResult($"Mitarbeiter mit der ID = {id} nicht existent.");
+                return OperationResult<Employee>.FailureResult($"Employee with ID = {id} does not exist.");
 
-            return OperationResult<Mitarbeiter>.SuccessResult(new Mitarbeiter(
+            return OperationResult<Employee>.SuccessResult(new Employee(
                 (int)rawData.Id,
                 (string)rawData.FirstName,
                 (string)rawData.LastName,
@@ -90,7 +90,7 @@ public class MitarbeiterRepository : IMitarbeiterRepository
         }
     }
 
-    public async Task<OperationResult<IEnumerable<Mitarbeiter>>> Search(string search)
+    public async Task<OperationResult<IEnumerable<Employee>>> Search(string search)
     {
         try
         {
@@ -98,39 +98,38 @@ public class MitarbeiterRepository : IMitarbeiterRepository
             {
                 using (var connection = await _connectionFactory.CreateConnection())
                 {
-
-                    await connection.OpenAsync();
+                    // Connection is already opened by SqlConnectionFactory
                     var rawData = await connection.QueryAsync(
-                        "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Mitarbeiter WHERE IsActive = true"
+                        "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Employees WHERE IsActive = true"
                     );
 
-                    var mitarbeiter = rawData.Select(row => new Mitarbeiter(
+                    var employee = rawData.Select(row => new Employee(
                         (int)row.Id,
                         (string)row.FirstName,
                         (string)row.LastName,
                         ((DateTime)row.Birthdate).ToString("yyyy-MM-dd"),
                         (bool)row.IsActive
                     ));
-                    return OperationResult<IEnumerable<Mitarbeiter>>.SuccessResult(mitarbeiter);
+                    return OperationResult<IEnumerable<Employee>>.SuccessResult(employee);
                 }
             }
             else if (search == "LastName")
             {
                 using (var connection = await _connectionFactory.CreateConnection())
                 {
-                    await connection.OpenAsync();
+                    // Connection is already opened by SqlConnectionFactory
                     var rawData = await connection.QueryAsync(
-                        "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Mitarbeiter Order By LastName DESC"
+                        "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Employees Order By LastName DESC"
                 );
 
-                    var mitarbeiter = rawData.Select(row => new Mitarbeiter(
+                    var employee = rawData.Select(row => new Employee(
                         (int)row.Id,
                         (string)row.FirstName,
                         (string)row.LastName,
                         ((DateTime)row.Birthdate).ToString("yyyy-MM-dd"),
                         (bool)row.IsActive
                     ));
-                    return OperationResult<IEnumerable<Mitarbeiter>>.SuccessResult(mitarbeiter);
+                    return OperationResult<IEnumerable<Employee>>.SuccessResult(employee);
                 }
             }
             else if (DateOnly.TryParseExact(search, "yyyy-MM-dd",
@@ -141,63 +140,63 @@ public class MitarbeiterRepository : IMitarbeiterRepository
 
                 using (var connection = await _connectionFactory.CreateConnection())
                 {
-                    await connection.OpenAsync();
+                    // Connection is already opened by SqlConnectionFactory
                     var rawData = await connection.QueryAsync(
-                        "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Mitarbeiter WHERE Birthdate < @birthDate",
+                        "SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Employees WHERE Birthdate < @birthDate",
                         new { birthDate = birthDate_parsed.ToString("yyyy-MM-dd") }
                     );
 
-                    var mitarbeiter = rawData.Select(row => new Mitarbeiter(
+                    var employee = rawData.Select(row => new Employee(
                         (int)row.Id,
                         (string)row.FirstName,
                         (string)row.LastName,
                         ((DateTime)row.Birthdate).ToString("yyyy-MM-dd"),
                         (bool)row.IsActive
                     ));
-                    return OperationResult<IEnumerable<Mitarbeiter>>.SuccessResult(mitarbeiter);
+                    return OperationResult<IEnumerable<Employee>>.SuccessResult(employee);
                 }
             }
-            return OperationResult<IEnumerable<Mitarbeiter>>.FailureResult("Ungültiger Suchfilter. Bitte 'isActive' oder 'LastName' oder ein Datum im Format 'yyyy-MM-dd' verwenden.");
+            return OperationResult<IEnumerable<Employee>>.FailureResult("Invalid search filter. Please use 'isActive' or 'LastName' or a date in format 'yyyy-MM-dd'.");
         }
         catch (FormatException)
         {
-            return OperationResult<IEnumerable<Mitarbeiter>>.FailureResult("Fehler beim Verarbeiten des Geburtsdatums: invalide Zeichen eingegeben!");
+            return OperationResult<IEnumerable<Employee>>.FailureResult("Error processing birth date: invalid characters entered!");
         }
     }
 
-    public async Task<OperationResult> Add(Mitarbeiter? mitarbeiter)
+    public async Task<OperationResult> Add(Employee? employee)
     {
         DateOnly date;
 
         try
         {
-            if (mitarbeiter == null || mitarbeiter == default(Mitarbeiter) || mitarbeiter.FirstName == null || mitarbeiter.LastName == null || mitarbeiter.BirthDate == null)
+            if (employee == null || employee == default(Employee) || employee.FirstName == null || employee.LastName == null || employee.BirthDate == null)
             {
-                return OperationResult.FailureResult("Mitarbeiterdaten sind korrumpiert oder leer.");
+                return OperationResult.FailureResult("Employee data is corrupted or empty.");
             }
 
-            if (string.IsNullOrWhiteSpace(mitarbeiter.FirstName) || string.IsNullOrWhiteSpace(mitarbeiter.LastName))
+            if (string.IsNullOrWhiteSpace(employee.FirstName) || string.IsNullOrWhiteSpace(employee.LastName))
             {
-                return OperationResult.FailureResult("Ein Vorname und ein Nachname sind erforderlich.");
+                return OperationResult.FailureResult("A first name and last name are required.");
             }
-            else if (string.IsNullOrWhiteSpace(mitarbeiter.BirthDate.ToString()))
+            else if (string.IsNullOrWhiteSpace(employee.BirthDate.ToString()))
             {
-                return OperationResult.FailureResult("Ein gültiges Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.");
+                return OperationResult.FailureResult("A valid birth date in format 'yyyy-MM-dd' is required.");
             }
             else if (
                 DateOnly.TryParseExact(
-                    mitarbeiter.BirthDate,
+                    employee.BirthDate,
                     "yyyy-MM-dd",
                     System.Globalization.CultureInfo.InvariantCulture,
                     System.Globalization.DateTimeStyles.None,
                     out DateOnly dateParsed
                 ) == false)
             {
-                return OperationResult.FailureResult("Ein gültiges Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.");
+                return OperationResult.FailureResult("A valid birth date in format 'yyyy-MM-dd' is required.");
             }
-            else if (await CheckDuplicateAsync(mitarbeiter))
+            else if (await CheckDuplicateAsync(employee))
             {
-                return OperationResult.FailureResult("Ein Mitarbeiter mit dem gleichen Vornamen, Nachnamen und Geburtsdatum existiert bereits.");
+                return OperationResult.FailureResult("An employee with the same first name, last name and birth date already exists.");
             }
             else
             {
@@ -206,24 +205,24 @@ public class MitarbeiterRepository : IMitarbeiterRepository
         }
         catch (FormatException ex)
         {
-            return OperationResult.FailureResult($"Fehler beim Verarbeiten des Geburtsdatums: invalide Zeichen eingegeben! {ex.Message}");
+            return OperationResult.FailureResult($"Error processing birth date: invalid characters entered! {ex.Message}");
         }
         
         using (var connection = await _connectionFactory.CreateConnection())
         {
-            await connection.OpenAsync();
-            var Sql_maxID = "SELECT MAX(Id) FROM Mitarbeiter;";
+            // Connection is already opened by SqlConnectionFactory
+            var Sql_maxID = "SELECT MAX(Id) FROM Employees;";
             var maxId = await connection.ExecuteScalarAsync<int>(Sql_maxID);
             int newId = maxId + 1;
 
-            var sql_Add = "INSERT INTO Mitarbeiter (Id,FirstName, LastName, Birthdate, IsActive) VALUES (@Id, @FirstName, @LastName, @Birthdate, @IsActive);";
+            var sql_Add = "INSERT INTO Employees (Id,FirstName, LastName, Birthdate, IsActive) VALUES (@Id, @FirstName, @LastName, @Birthdate, @IsActive);";
             await connection.ExecuteAsync(sql_Add, new
             {
                 Id = newId,
-                FirstName = mitarbeiter.FirstName,
-                LastName = mitarbeiter.LastName,
+                FirstName = employee.FirstName,
+                LastName = employee.LastName,
                 Birthdate = date.ToString("yyyy-MM-dd"),
-                IsActive = mitarbeiter.IsActive
+                IsActive = employee.IsActive
             });
         
 
@@ -232,47 +231,47 @@ public class MitarbeiterRepository : IMitarbeiterRepository
         return OperationResult.SuccessResult();
     }
 
-    public async Task<OperationResult> Update(int id, Mitarbeiter? mitarbeiter)
+    public async Task<OperationResult> Update(int id, Employee? employee)
     {
         try
         {
-            if (mitarbeiter == null)
+            if (employee == null)
             {
-                return OperationResult.FailureResult("Mitarbeiterdaten sind korrumpiert oder leer.");
+                return OperationResult.FailureResult("Employee data is corrupted or empty.");
             }
 
-            if (string.IsNullOrWhiteSpace(mitarbeiter.FirstName) || string.IsNullOrWhiteSpace(mitarbeiter.LastName))
+            if (string.IsNullOrWhiteSpace(employee.FirstName) || string.IsNullOrWhiteSpace(employee.LastName))
             {
-                return OperationResult.FailureResult("Ein Vorname und ein Nachname sind erforderlich.");
+                return OperationResult.FailureResult("A first name and last name are required.");
             }
-            else if (string.IsNullOrWhiteSpace(mitarbeiter.BirthDate.ToString()))
+            else if (string.IsNullOrWhiteSpace(employee.BirthDate.ToString()))
             {
-                return OperationResult.FailureResult("Ein Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.");
+                return OperationResult.FailureResult("A birth date in format 'yyyy-MM-dd' is required.");
             }
-            else if (string.IsNullOrWhiteSpace(mitarbeiter.BirthDate) ||
+            else if (string.IsNullOrWhiteSpace(employee.BirthDate) ||
                 DateOnly.TryParseExact(
-                    mitarbeiter.BirthDate,
+                    employee.BirthDate,
                     "yyyy-MM-dd",
                     System.Globalization.CultureInfo.InvariantCulture,
                     System.Globalization.DateTimeStyles.None,
                     out DateOnly dateParsed
                 ) == false)
             {
-                return OperationResult.FailureResult("Ein gültiges Geburtsdatum im Format 'yyyy-MM-dd' ist erforderlich.");
+                return OperationResult.FailureResult("A valid birth date in format 'yyyy-MM-dd' is required.");
             }
         }
         catch (FormatException ex)
         {
-            return OperationResult.FailureResult($"Fehler beim Verarbeiten des Geburtsdatums: invalide Zeichen eingegeben! // {ex.Message}");
+            return OperationResult.FailureResult($"Error processing birth date: invalid characters entered! // {ex.Message}");
         }
 
         using (var connection = await _connectionFactory.CreateConnection())
         {
-            await connection.OpenAsync();
+            // Connection is already opened by SqlConnectionFactory
 
-            // 1. Prüfen ob andere Mitarbeiter mit gleichen Daten existieren (außer dem aktuellen)
+            // 1. Pr\u00fcfen ob andere Mitarbeiter mit gleichen Daten existieren (au\u00dfer dem aktuellen)
             var duplicateCheckSql = @"
-        SELECT COUNT(*) FROM Mitarbeiter 
+        SELECT COUNT(*) FROM Employees
         WHERE FirstName = @FirstName 
         AND LastName = @LastName 
         AND Birthdate = @Birthdate 
@@ -280,38 +279,38 @@ public class MitarbeiterRepository : IMitarbeiterRepository
 
             var duplicateCount = await connection.ExecuteScalarAsync<int>(duplicateCheckSql, new
             {
-                FirstName = mitarbeiter.FirstName,
-                LastName = mitarbeiter.LastName,
-                Birthdate = mitarbeiter.BirthDate,
+                FirstName = employee.FirstName,
+                LastName = employee.LastName,
+                Birthdate = employee.BirthDate,
                 Id = id
             });
 
             if (duplicateCount > 0)
             {
-                return OperationResult.FailureResult("Ein anderer Mitarbeiter mit den gleichen Daten existiert bereits unter anderer ID");
+                return OperationResult.FailureResult("Another employee with the same data already exists under a different ID");
             }
         }
 
         using (var connection = await _connectionFactory.CreateConnection())
         {
-            await connection.OpenAsync();
-            var sql_Update = "UPDATE Mitarbeiter SET FirstName = @FirstName, LastName = @LastName, Birthdate = @Birthdate, IsActive = @IsActive WHERE Id = @Id;";
+            // Connection is already opened by SqlConnectionFactory
+            var sql_Update = "UPDATE Employees SET FirstName = @FirstName, LastName = @LastName, Birthdate = @Birthdate, IsActive = @IsActive WHERE Id = @Id;";
             var updateresult = await connection.ExecuteAsync(sql_Update, new
             {
                 Id = id,
-                FirstName = mitarbeiter.FirstName,
-                LastName = mitarbeiter.LastName,
-                Birthdate = mitarbeiter.BirthDate,
-                IsActive = mitarbeiter.IsActive
+                FirstName = employee.FirstName,
+                LastName = employee.LastName,
+                Birthdate = employee.BirthDate,
+                IsActive = employee.IsActive
             });
 
             if (updateresult == 0)
             {
-                return OperationResult.FailureResult($"Mitarbeiter konnte nicht aktualisiert werden, da diese Id = {id} nicht existiert");
+                return OperationResult.FailureResult($"Employee could not be updated because ID = {id} does not exist");
             }
         }
         
-        Console.WriteLine($"Mitarbeiter mit ID {id} aktualisiert.");
+        Console.WriteLine($"Employee with ID {id} updated.");
         return OperationResult.SuccessResult();
     }
 
@@ -322,29 +321,29 @@ public class MitarbeiterRepository : IMitarbeiterRepository
        
         using (var connection = await _connectionFactory.CreateConnection())
         {
-            await connection.OpenAsync();
-            var sql_Delete = "DELETE FROM Mitarbeiter WHERE Id = @Id;";
+            // Connection is already opened by SqlConnectionFactory
+            var sql_Delete = "DELETE FROM Employees WHERE Id = @Id;";
 
             var deletedRows = await connection.ExecuteAsync(sql_Delete, new { Id = id });
             
             if (deletedRows > 0)
             {
-                Console.WriteLine($"Mitarbeiter mit ID {id} gelöscht.");
+                Console.WriteLine($"Employee with ID {id} deleted.");
                 return OperationResult.SuccessResult();
             }
             else
             {
-                return OperationResult.FailureResult($"Mitarbeiter konnte nicht gelöscht werden, da diese Id = {id} nicht existiert.");
+                return OperationResult.FailureResult($"Employee could not be deleted because ID = {id} does not exist.");
             }
         }
     }
     
-    private async Task<bool> CheckDuplicateAsync(Mitarbeiter mitarbeiter)
+    private async Task<bool> CheckDuplicateAsync(Employee employee)
 {
     var operationResult = await GetAll();
     return operationResult.Data?.Any(m => 
-        m.FirstName == mitarbeiter.FirstName && 
-        m.LastName == mitarbeiter.LastName && 
-        m.BirthDate == mitarbeiter.BirthDate) ?? false;
+        m.FirstName == employee.FirstName && 
+        m.LastName == employee.LastName && 
+        m.BirthDate == employee.BirthDate) ?? false;
 }
 }

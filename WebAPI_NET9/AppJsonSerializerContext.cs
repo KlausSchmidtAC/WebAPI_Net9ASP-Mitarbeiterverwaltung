@@ -3,10 +3,10 @@ using Domain;
 
 namespace WebAPI_NET9;
 
-[JsonSerializable(typeof(List<Domain.Mitarbeiter>))]
-[JsonSerializable(typeof(IEnumerable<Domain.Mitarbeiter>))]
-[JsonSerializable(typeof(Domain.Mitarbeiter))]
-[JsonSerializable(typeof(Domain.Mitarbeiter[]))]
+[JsonSerializable(typeof(List<Domain.Employee>))]
+[JsonSerializable(typeof(IEnumerable<Domain.Employee>))]
+[JsonSerializable(typeof(Domain.Employee))]
+[JsonSerializable(typeof(Domain.Employee[]))]
 [JsonSerializable(typeof(OperationResult))]
 [JsonSerializable(typeof(TokenGenerationRequest))]
 

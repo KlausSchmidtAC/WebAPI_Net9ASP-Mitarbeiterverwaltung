@@ -26,7 +26,7 @@ public class AuthController : ControllerBase
     [HttpGet("public")]
     public IActionResult PublicEndpoint()
     {
-        _logger.LogInformation("Öffentlicher Endpunkt aufgerufen.");
+        _logger.LogInformation("Public endpoint called.");
         return 
         Ok(new { 
                  Message = "Public endpoint accessed successfully",
@@ -39,7 +39,7 @@ public class AuthController : ControllerBase
     [Authorize]
     public IActionResult ProtectedEndpoint()
     {   
-        _logger.LogInformation("Geschützter Endpunkt aufgerufen.");
+        _logger.LogInformation("Protected endpoint called.");
         return Ok(new { 
             Message = "Protected endpoint accessed successfully",
             AccessLevel = "Protected",
@@ -93,8 +93,8 @@ public class AuthController : ControllerBase
         var token = tokenHandler.CreateToken(tokenDescriptor);
         var jwt = tokenHandler.WriteToken(token);
         
-        // Nur Metadaten, keine sensitiven Claim-Werte werden geloggt
-        _logger.LogInformation("JWT-Token erstellt für Benutzer: {Username}, Claims-Anzahl: {ClaimsCount}, Claim-Typen: {ClaimTypes} Gültig bis: {ExpiryTime}", 
+        // Only metadata logged, no sensitive claim values
+        _logger.LogInformation("JWT token created for user: {Username}, Claims count: {ClaimsCount}, Claim types: {ClaimTypes} Valid until: {ExpiryTime}", 
             request.Username, 
             claims.Count, 
             string.Join(", ", claims.Select(c => c.Type)),
