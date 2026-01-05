@@ -2,7 +2,6 @@ using WebAPI_NET9;
 using Application;
 using Data.Repositories; 
 using Data.SQL_DB;
-using Serilog;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
