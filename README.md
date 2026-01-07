@@ -22,6 +22,8 @@ Eine moderne **Mitarbeiterverwaltungs-API** entwickelt mit **.NET 9** und **Clea
 - ✅ **Performance-optimierte Connection Factory** (3-5x schneller: 5-15ms → 1-3ms pro Request)
 - ✅ **Enterprise Configuration Validation** beim Startup mit umfassender Fehlerprüfung
 - ✅ **MySQL-spezifische Exception Handling** für granulare Fehlerbehandlung
+- ✅ **Production Health Checks** mit Database- und Application-Monitoring für Enterprise-Deployment
+- ✅ **CancellationToken-Support** für alle API-Endpunkte mit graceful Request-Cancellation
 
 ## 🏗️ Architektur
 
@@ -64,23 +66,24 @@ Das Projekt folgt dem **Clean Architecture** Pattern mit klarer Trennung der Ver
 
 ### 🔐 Authentication
 
-| HTTP Verb | Endpunkt | Beschreibung |
-|-----------|----------|--------------|
-| `POST` | `/api/Auth/login` | JWT Token generieren |
-| `POST` | `/api/Auth/logout` | Token invalidieren |
+| HTTP Verb | Endpunkt | Beschreibung | CancellationToken |
+|-----------|----------|--------------|-------------------|
+| `POST` | `/api/Auth/token` | JWT Token generieren | ✅ |
+| `GET` | `/api/Auth/public` | Öffentlicher Endpunkt | ✅ |
+| `GET` | `/api/Auth/protected` | Geschützter Endpunkt | ✅ |
 
 ### 👥 Mitarbeiter Management
 
-| HTTP Verb | Endpunkt | Beschreibung | Authorization |
-|-----------|----------|--------------|---------------|
-| `GET` | `/api/Employee` | Alle Mitarbeiter abrufen | JWT Required |
-| `GET` | `/api/Employee/{id}` | Mitarbeiter nach ID abrufen | JWT Required |
-| `GET` | `/api/Employee/sorted?filter=LastName` | Mitarbeiter nach Nachnamen sortiert | JWT Required |
-| `GET` | `/api/Employee/sorted?filter=isActive` | Alle aktiven Mitarbeiter | JWT Required |
-| `GET` | `/api/Employee/birthDate?birthDate={yyyy-MM-dd}` | Mitarbeiter mit Geburtsdatum vor Datum | JWT Required |
-| `POST` | `/api/Employee` | Neuen Mitarbeiter erstellen | Admin Role |
-| `PUT` | `/api/Employee/{id}` | Mitarbeiter aktualisieren | Admin Role |
-| `DELETE` | `/api/Employee/{id}` | Mitarbeiter löschen | Admin Role |
+| HTTP Verb | Endpunkt | Beschreibung | Authorization | CancellationToken |
+|-----------|----------|--------------|---------------|-------------------|
+| `GET` | `/api/Employee` | Alle Mitarbeiter abrufen | JWT Required | ✅ |
+| `GET` | `/api/Employee/{id}` | Mitarbeiter nach ID abrufen | JWT Required | ✅ |
+| `GET` | `/api/Employee/sorted?filter=LastName` | Mitarbeiter nach Nachnamen sortiert | JWT Required | ✅ |
+| `GET` | `/api/Employee/sorted?filter=isActive` | Alle aktiven Mitarbeiter | JWT Required | ✅ |
+| `GET` | `/api/Employee/birthDate?birthDate={yyyy-MM-dd}` | Mitarbeiter mit Geburtsdatum vor Datum | JWT Required | ✅ |
+| `POST` | `/api/Employee` | Neuen Mitarbeiter erstellen | Admin Role | ✅ |
+| `PUT` | `/api/Employee/{id}` | Mitarbeiter aktualisieren | Admin Role | ✅ |
+| `DELETE` | `/api/Employee/{id}` | Mitarbeiter löschen | Admin Role | ✅ |
 
 ### JWT Authentication Beispiel
 
@@ -204,7 +207,21 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
    - **Swagger UI**: `https://localhost:5101/swagger`
    - **HTTP**: `http://localhost:5100`  
    - **HTTPS**: `https://localhost:5101`
+   - **Health Checks**: `http://localhost:5100/health` 🔍
    - **Logs**: `http://localhost:5099` (falls Seq läuft)
+
+## 🔍 Health Monitoring
+
+```bash
+# System-Gesundheit prüfen
+curl http://localhost:5100/health
+
+# Database Readiness (Kubernetes Ready Probe)
+curl http://localhost:5100/health/ready
+
+# Application Liveness (Kubernetes Live Probe)  
+curl http://localhost:5100/health/live
+```
 
 ## 🧪 Tests ausführen
 
@@ -384,6 +401,70 @@ public class OperationResult<T>
 }
 ```
 
+### CancellationToken-Support für Graceful Request Handling
+Vollständige CancellationToken-Integration in allen API-Layern für robuste Request-Cancellation:
+
+```csharp
+// Controller Layer - Automatische Parameter-Weiterleitung
+[HttpGet]
+public async Task<IActionResult> GetAllEmployees(CancellationToken cancellationToken = default)
+{
+    var result = await _employeeService.GetAllEmployees(cancellationToken);
+    return Ok(new { Message = "Alle Mitarbeiter erfolgreich abgerufen.", Data = result });
+}
+
+// Service Layer - Business Logic mit Cancellation
+public async Task<IEnumerable<Employee>> GetAllEmployees(CancellationToken cancellationToken = default)
+{
+    return await _employeeRepository.GetAll(cancellationToken);
+}
+
+// Repository Layer - Database Operations mit CommandDefinition
+public async Task<IEnumerable<Employee>> GetAll(CancellationToken cancellationToken = default)
+{
+    using var connection = await _connectionFactory.CreateConnection();
+    var command = new CommandDefinition(
+        commandText: "SELECT Id, FirstName, LastName, BirthDate, IsActive FROM employees",
+        cancellationToken: cancellationToken,
+        commandTimeout: 30
+    );
+    return await connection.QueryAsync<Employee>(command);
+}
+```
+
+**CancellationToken Features:**
+- ✅ **Alle Controller-Endpunkte**: GET, POST, PUT, DELETE Operations
+- ✅ **Service-Layer Integration**: Vollständige Parameter-Weiterleitung
+- ✅ **Database-Layer Support**: CommandDefinition für Dapper ORM
+- ✅ **Timeout-Protection**: Konfigurierbare Command-Timeouts (30 Sekunden)
+- ✅ **Client-Side Cancellation**: Unterstützung für fetch() AbortController
+- ✅ **Thread-Safe Operations**: Proper async/await Pattern
+- ✅ **Resource Cleanup**: Automatische Connection-Freigabe bei Cancellation
+
+**Client-Side Usage (JavaScript/TypeScript):**
+```typescript
+// Fetch mit AbortController für Request Cancellation
+const controller = new AbortController();
+
+const fetchEmployees = async () => {
+  try {
+    const response = await fetch('/api/Employee', {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` },
+      signal: controller.signal  // CancellationToken wird automatisch weitergereicht
+    });
+    return await response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Request wurde erfolgreich abgebrochen');
+    }
+  }
+};
+
+// Request nach 5 Sekunden cancellen
+setTimeout(() => controller.abort(), 5000);
+```
+
 ### Thread-sichere Initialisierung
 Database-Initialisierung mit Semaphore für Thread-Sicherheit:
 
@@ -397,6 +478,89 @@ public async Task<MySqlConnection> CreateConnection()
     {
         // Thread-sichere Initialisierung mit strukturiertem Logging
         _logger.LogDebug("Creating new MySQL connection");
+        return connection;
+    }
+    finally
+    {
+        _semaphore.Release();
+    }
+}
+```
+
+### Enterprise Health Checks 🔍
+Production-ready Health Monitoring für Operational Excellence:
+
+#### Verfügbare Health Check Endpoints:
+```http
+GET /health        # Vollständiger System-Status mit JSON Response
+GET /health/ready  # Database Readiness (Kubernetes Ready Probe)
+GET /health/live   # Application Liveness (Kubernetes Live Probe)  
+```
+
+#### DatabaseHealthCheck Features:
+- ✅ **Performance Monitoring**: < 100ms = Healthy, < 500ms = Degraded, > 500ms = Unhealthy
+- ✅ **MySQL Connection Validation** mit spezifischer Fehlerbehandlung
+- ✅ **Timeout Protection** (5 Sekunden Standard)
+- ✅ **Detailed Logging** für Troubleshooting
+- ✅ **Rich Response Data** mit Connection-Details und Response-Times
+
+#### ApplicationHealthCheck Features:
+- ✅ **Memory Usage Monitoring** mit konfigurierbaren Schwellenwerten (500MB Warnung)
+- ✅ **Garbage Collection Pressure** Detection (Gen2 Collections > 100 = Warning)
+- ✅ **System Uptime Tracking** seit Anwendungsstart
+- ✅ **Runtime Metrics**: .NET Version, Processor Count, Working Set
+- ✅ **Environment Information**: ASPNETCORE_ENVIRONMENT Detection
+
+#### JSON Health Response Format:
+```json
+{
+  "status": "Healthy|Degraded|Unhealthy",
+  "totalDuration": 15.23,
+  "checks": [
+    {
+      "name": "database",
+      "status": "Healthy", 
+      "duration": 12.45,
+      "description": "MySQL connection successful",
+      "data": {
+        "responseTime": "1.23ms",
+        "server": "localhost:3306",
+        "database": "Mitarbeiter"
+      },
+      "tags": ["db", "sql"]
+    },
+    {
+      "name": "application",
+      "status": "Healthy",
+      "duration": 2.78,
+      "data": {
+        "uptime": "0d 2h 15m 30s",
+        "memoryUsage": "145.67 MB",
+        "gcGen0Collections": 12,
+        "gcGen1Collections": 5, 
+        "gcGen2Collections": 1,
+        "environment": "Development",
+        "dotnetVersion": "9.0.0",
+        "processorCount": 8,
+        "workingSet": "234.56 MB"
+      },
+      "tags": ["app", "system"]
+    }
+  ]
+}
+```
+
+#### Production Benefits:
+- 🔧 **Monitoring Integration**: Prometheus/Grafana-ready Endpoints
+- 🚀 **Kubernetes Support**: Separate Readiness/Liveness Probes
+- 📊 **Performance Insights**: Response Times und System Metrics
+- 🔍 **Debugging Support**: Detaillierte Logs für Root Cause Analysis
+- ⚡ **Early Problem Detection**: Proaktive Überwachung vor User Impact
+
+#### Status Code Mappings:
+- `200 OK` - Alle Health Checks erfolgreich (Healthy)
+- `200 OK` - Einige Checks degraded aber funktional (Degraded) 
+- `503 Service Unavailable` - Kritische Checks failed (Unhealthy)
     }
     finally
     {
@@ -440,6 +604,8 @@ CREATE TABLE employees (
 - [x] **Authentication & Authorization** (JWT) ✅ **Implementiert**
 - [x] **OpenTelemetry Logging** ✅ **Implementiert**
 - [x] **Advanced Filtering & Search** ✅ **Implementiert**
+- [x] **Health Checks** für Monitoring ✅ **Implementiert**
+- [x] **CancellationToken Support** für alle API-Endpunkte ✅ **Implementiert**
 - [ ] **Paginierung** für große Datensätze
 - [ ] **Caching** mit Redis/Memory Cache
 - [ ] **Docker** Containerisierung mit Multi-Stage Build
@@ -458,15 +624,16 @@ Diese API wurde mit **Frontend-First** Design entwickelt und bietet vollständig
 
 ### ⚛️ **React.js Integration**
 ```typescript
-// JWT Authentication Hook
+// JWT Authentication Hook mit CancellationToken Support
 const useAuth = () => {
   const [token, setToken] = useState(localStorage.getItem('jwt_token'));
   
-  const login = async (credentials) => {
-    const response = await fetch('/api/Auth/login', {
+  const login = async (credentials, abortController) => {
+    const response = await fetch('/api/Auth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(credentials)
+      body: JSON.stringify(credentials),
+      signal: abortController?.signal  // CancellationToken-Unterstützung
     });
     const { data } = await response.json();
     setToken(data.token);
@@ -474,10 +641,11 @@ const useAuth = () => {
   };
 };
 
-// Mitarbeiter Service
+// Mitarbeiter Service mit Request Cancellation
 const mitarbeiterService = {
-  getAll: () => fetch('/api/Mitarbeiter', {
-    headers: { 'Authorization': `Bearer ${token}` }
+  getAll: (abortController) => fetch('/api/Employee', {
+    headers: { 'Authorization': `Bearer ${token}` },
+    signal: abortController?.signal  // Automatic CancellationToken forwarding
   }).then(res => res.json())
 };
 ```
@@ -592,6 +760,7 @@ export const apiClient = {
 | **OpenAPI/Swagger** | Automatische TypeScript Client-Generierung |
 | **Structured Error Responses** | Konsistente Fehlerbehandlung |
 | **HTTP Status Codes** | Standard-konforme Antworten (200, 401, 404, etc.) |
+| **CancellationToken-Support** | Request Cancellation mit AbortController/AbortSignal |
 
 ### 🛠️ **Code Generation & Tools**
 

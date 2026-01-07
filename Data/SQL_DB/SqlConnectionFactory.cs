@@ -35,7 +35,7 @@ public class SqlConnectionFactory : IConnectionFactory
                 await connection.OpenAsync(); // Test connection immediately
                 return connection;
             }
-            catch (MySqlException ex) when (ex.Number == 1049) // Database doesn't exist anymore although _isInitialized was checked true (externally deleted)
+            catch (MySqlException ex) when (ex.Number == 1049) // Database doesn't exist anymore although _isInitialized was checked true (DB externally deleted)
             {
                 _logger.LogWarning("Database was externally deleted (Error 1049), re-initializing");
                 _isInitialized = false; // Reset flag to trigger re-initialization
@@ -71,7 +71,7 @@ public class SqlConnectionFactory : IConnectionFactory
                 throw new InvalidOperationException("Database initialization failed in SqlConnectionFactory.");
             }
             
-            // Mark as initialized to skip future checks
+            // Mark DB as initialized to skip future checks
             _isInitialized = true;
             _logger.LogInformation("Database initialization completed successfully");
         }

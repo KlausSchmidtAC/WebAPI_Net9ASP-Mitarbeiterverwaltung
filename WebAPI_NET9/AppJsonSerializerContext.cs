@@ -8,7 +8,7 @@ namespace WebAPI_NET9;
 [JsonSerializable(typeof(Domain.Employee))]
 [JsonSerializable(typeof(Domain.Employee[]))]
 [JsonSerializable(typeof(OperationResult))]
-[JsonSerializable(typeof(TokenGenerationRequest))]
+[JsonSerializable(typeof(Domain.TokenGenerationRequest))]
 
  public partial class AppJsonSerializerContext : JsonSerializerContext
 {

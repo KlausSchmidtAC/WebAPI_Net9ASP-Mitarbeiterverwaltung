@@ -12,33 +12,33 @@ public class EmployeeService : IEmployeeService
         _employeeRepository = employeeRepository;
     }
 
-    public Task<OperationResult<IEnumerable<Employee>>> GetAllEmployees()
+    public Task<OperationResult<IEnumerable<Employee>>> GetAllEmployees(CancellationToken cancellationToken = default)
     {
-        return _employeeRepository.GetAll();
+        return _employeeRepository.GetAll(cancellationToken);
     }
 
-    public Task<OperationResult<Employee>> GetEmployeeById(int id)
+    public Task<OperationResult<Employee>> GetEmployeeById(int id, CancellationToken cancellationToken = default)
     {
-        return _employeeRepository.GetById(id);
+        return _employeeRepository.GetById(id, cancellationToken);
     }
 
-    public Task<OperationResult<IEnumerable<Employee>>> SearchEmployees(string search)
+    public Task<OperationResult<IEnumerable<Employee>>> SearchEmployees(string search, CancellationToken cancellationToken = default)
     {
-        return _employeeRepository.Search(search);
+        return _employeeRepository.Search(search, cancellationToken);
     }
 
-    public Task<OperationResult> CreateEmployee(Employee employee)
+    public Task<OperationResult> CreateEmployee(Employee employee, CancellationToken cancellationToken = default)
     {
-        return _employeeRepository.Add(employee);
+        return _employeeRepository.Add(employee, cancellationToken);
     }
 
-    public Task<OperationResult> UpdateEmployee(int id, Employee employee)
+    public Task<OperationResult> UpdateEmployee(int id, Employee employee, CancellationToken cancellationToken = default)
     {
-        return _employeeRepository.Update(id, employee);
+        return _employeeRepository.Update(id, employee, cancellationToken);
     }
 
-    public Task<OperationResult> DeleteEmployee(int id)
+    public Task<OperationResult> DeleteEmployee(int id, CancellationToken cancellationToken = default)
     {
-        return _employeeRepository.Delete(id);
+        return _employeeRepository.Delete(id, cancellationToken);
     }
 }

@@ -8,7 +8,7 @@ using Domain.Constants;
 namespace WebAPI_NET9.Controllers
 {   
     [ApiController]
-    [Route("api/employees")] // ← Route auf Englisch geändert
+    [Route("api/employees")] // ← Route now in English
     public class EmployeeController : ControllerBase
     {
 
@@ -23,11 +23,11 @@ namespace WebAPI_NET9.Controllers
 
     
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Employee>>> GetAll()
+        public async Task<ActionResult<IEnumerable<Employee>>> GetAll(CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("GetAll called");
 
-            var operationResult = await _employeeService.GetAllEmployees();
+            var operationResult = await _employeeService.GetAllEmployees(cancellationToken);
             if (!operationResult.Success)
             {
                 _logger.LogWarning("GetAll request: No employees in the list.");
@@ -42,14 +42,14 @@ namespace WebAPI_NET9.Controllers
 
         [Authorize]
         [HttpGet("search")]
-        public async Task<ActionResult<IEnumerable<Employee>>> GetSorted([FromQuery] string? search)
+        public async Task<ActionResult<IEnumerable<Employee>>> GetSorted([FromQuery] string? search, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(search))
             {   
                 _logger.LogWarning("GetSorted request: Invalid employee filter.");
                 return NotFound(new { Message = "Please enter a valid employee filter." });
             }
-            var operationResult = await _employeeService.SearchEmployees(search);
+            var operationResult = await _employeeService.SearchEmployees(search, cancellationToken);
 
             if (!operationResult.Success)
             {   
@@ -101,7 +101,7 @@ namespace WebAPI_NET9.Controllers
 
         [Authorize]
         [HttpGet("{id}")]
-        public async Task<ActionResult<Employee>> GetEmployee([FromRoute] int id)
+        public async Task<ActionResult<Employee>> GetEmployee([FromRoute] int id, CancellationToken cancellationToken = default)
         {
             if (id <= 0)
             {   
@@ -109,7 +109,7 @@ namespace WebAPI_NET9.Controllers
                 return BadRequest(new { Message = "Invalid ID" });
             }
 
-            var operationResult = await _employeeService.GetEmployeeById(id);
+            var operationResult = await _employeeService.GetEmployeeById(id, cancellationToken);
 
             if (!operationResult.Success)
             {   
@@ -123,7 +123,7 @@ namespace WebAPI_NET9.Controllers
 
         [Authorize]
         [HttpGet("birthDate")]
-        public async Task<ActionResult<IEnumerable<Employee>>> GetByDate([FromQuery] string? birthDate)
+        public async Task<ActionResult<IEnumerable<Employee>>> GetByDate([FromQuery] string? birthDate, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(birthDate))
             {   
@@ -131,7 +131,7 @@ namespace WebAPI_NET9.Controllers
                 return BadRequest(new { Message = "Invalid date format or date input. Please use 'yyyy-MM-dd'." });
             }
 
-            var operationResult = await _employeeService.SearchEmployees(birthDate);
+            var operationResult = await _employeeService.SearchEmployees(birthDate, cancellationToken);
 
             if (!operationResult.Success)
             {
@@ -153,9 +153,9 @@ namespace WebAPI_NET9.Controllers
         [Authorize]
         [RequiresClaim(IdentityData.Claims.AdminRole, "true")]
         [HttpPost]
-        public async Task<IActionResult> CreateEmployee([FromBody] Employee employee)
+        public async Task<IActionResult> CreateEmployee([FromBody] Employee employee, CancellationToken cancellationToken = default)
         {
-            var operationResult = await _employeeService.CreateEmployee(employee);
+            var operationResult = await _employeeService.CreateEmployee(employee, cancellationToken);
 
             if (!operationResult.Success)
             {
@@ -169,7 +169,7 @@ namespace WebAPI_NET9.Controllers
         [Authorize]
         [RequiresClaim(IdentityData.Claims.AdminRole, "true")]
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteEmployee([FromRoute] int id) // ← Methodenname korrigiert
+        public async Task<IActionResult> DeleteEmployee([FromRoute] int id, CancellationToken cancellationToken = default)
         {
             if (id <= 0)
             {   
@@ -177,7 +177,7 @@ namespace WebAPI_NET9.Controllers
                 return BadRequest(new { Message = "Invalid ID" });
             }
 
-            var operationResult = await _employeeService.DeleteEmployee(id);
+            var operationResult = await _employeeService.DeleteEmployee(id, cancellationToken);
 
             if (!operationResult.Success)
             {   
@@ -191,7 +191,7 @@ namespace WebAPI_NET9.Controllers
         [Authorize]
         [RequiresClaim(IdentityData.Claims.AdminRole, "true")]
         [HttpPatch("{id}")]
-        public async Task<IActionResult> UpdateEmployee([FromRoute] int id, [FromBody] Employee employee)
+        public async Task<IActionResult> UpdateEmployee([FromRoute] int id, [FromBody] Employee employee, CancellationToken cancellationToken = default)
         {
             if (id <= 0)
             {   
@@ -199,7 +199,7 @@ namespace WebAPI_NET9.Controllers
                 return BadRequest(new { Message = "Invalid ID" });
             }
 
-            var operationResult = await _employeeService.UpdateEmployee(id, employee);
+            var operationResult = await _employeeService.UpdateEmployee(id, employee, cancellationToken);
 
             if (!operationResult.Success)
             {   

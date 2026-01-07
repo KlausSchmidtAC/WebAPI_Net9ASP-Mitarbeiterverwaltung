@@ -1,10 +1,12 @@
 using WebAPI_NET9;
 using WebAPI_NET9.Configuration;
+using WebAPI_NET9.HealthChecks;
 using Application;
 using Data.Repositories; 
 using Data.SQL_DB;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Text;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using Microsoft.Extensions.Options; 
@@ -24,8 +26,9 @@ try
 {
     ConfigurationValidator.ValidateConfiguration(builder.Configuration, startupLogger);
 }
-catch (InvalidOperationException ex)
+catch (InvalidOperationException)
 {
+    // Configuration validation failed - application will exit
     startupLogger.LogCritical("❌ Application startup aborted due to configuration errors");
     Environment.Exit(1); // Exit with error code
 }
@@ -122,6 +125,10 @@ builder.Services.AddSingleton<IEmployeeService, EmployeeService>();
 builder.Services.AddSingleton<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddSingleton<IConnectionFactory, SqlConnectionFactory>();
 
+// Register Health Checks
+builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>("database", tags: new[] { "db", "sql" })
+    .AddCheck<ApplicationHealthCheck>("application", tags: new[] { "app", "system" });
 
 // Register Database Initializer with configuration values from appsettings.json
 var dbConfig = builder.Configuration.GetSection("Database");
@@ -155,6 +162,45 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication(); // IMPORTANT: Order matters! Authentication first, then Authorization
 app.UseAuthorization();
 
+// Health Checks Endpoints
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        var response = new
+        {
+            Status = report.Status.ToString(),
+            TotalDuration = report.TotalDuration.TotalMilliseconds,
+            Checks = report.Entries.Select(entry => new
+            {
+                Name = entry.Key,
+                Status = entry.Value.Status.ToString(),
+                Duration = entry.Value.Duration.TotalMilliseconds,
+                Description = entry.Value.Description,
+                Data = entry.Value.Data,
+                Exception = entry.Value.Exception?.Message,
+                Tags = entry.Value.Tags
+            }).ToArray()
+        };
+
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(response, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+        }));
+    }
+});
+
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("db")
+});
+
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("app")
+});
 
 app.MapControllers();
 

@@ -24,7 +24,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpGet("public")]
-    public IActionResult PublicEndpoint()
+    public IActionResult PublicEndpoint(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Public endpoint called.");
         return 
@@ -37,7 +37,7 @@ public class AuthController : ControllerBase
 
     [HttpGet("protected")]
     [Authorize]
-    public IActionResult ProtectedEndpoint()
+    public IActionResult ProtectedEndpoint(CancellationToken cancellationToken = default)
     {   
         _logger.LogInformation("Protected endpoint called.");
         return Ok(new { 
@@ -48,7 +48,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("token")]
-    public IActionResult CreateToken([FromBody]TokenGenerationRequest request) 
+    public IActionResult CreateToken([FromBody]TokenGenerationRequest request, CancellationToken cancellationToken = default) 
     {
         var jwtConfig = _configuration.GetSection("JWTSettings");
         var tokenHandler = new JwtSecurityTokenHandler();

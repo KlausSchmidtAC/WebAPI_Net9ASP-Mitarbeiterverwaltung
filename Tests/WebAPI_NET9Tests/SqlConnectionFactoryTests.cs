@@ -11,14 +11,13 @@ public class SqlConnectionFactoryTests
 {
     private IDatabaseInitializer _databaseInitializer; // NSubstitute Mock
     private ILogger<SqlConnectionFactory> _logger; // Logger Mock
-    private SqlConnectionFactory? _sqlConnectionFactory; // Nullable: erst in Tests initialisiert
-    // ✅ Use connection string from actual appsettings for consistency
-    private const string TestConnectionString = "Server=localhost;Database=Employees;Uid=root;Pwd=;Port=3306";
+    private SqlConnectionFactory? _sqlConnectionFactory; // Nullable: initialized in tests only
+    private const string TestConnectionString = "Server=localhost;Database=Employees;Uid=root;Pwd=;Port=3306"; // From configuration
 
     [SetUp]
     public void Setup()
     {
-        // NSubstitute Mock erstellen - OHNE readonly möglich
+        // Create NSubstitute Mock - possible WITHOUT readonly
         _databaseInitializer = Substitute.For<IDatabaseInitializer>();
         _logger = Substitute.For<ILogger<SqlConnectionFactory>>();
         _databaseInitializer.GetApplicationConnectionString().Returns(TestConnectionString);
@@ -27,17 +26,17 @@ public class SqlConnectionFactoryTests
     }
 
 
-    [Test]  // Constructor mit Null-Übergabe
+    [Test]  // Constructor with null parameter
     public void Constructor_NullDatabaseInitializer_ThrowsArgumentNullException()
     {
         // Act & Assert
         var exception = Assert.Throws<ArgumentNullException>(() => 
-            new SqlConnectionFactory(null!, _logger)); // null! für Nullable-Kontext
+            new SqlConnectionFactory(null!, _logger)); // null! for nullable context
         
         Assert.That(exception.ParamName, Is.EqualTo("databaseInitializer"));
     }
 
-    [Test]  // GetConnectionString gibt korrekten Wert zurück
+    [Test]  // GetConnectionString returns correct value
     public void GetConnectionString_ReturnsCorrectConnectionString()
     {
         // Arrange
@@ -51,7 +50,7 @@ public class SqlConnectionFactoryTests
         _databaseInitializer.Received(1).GetApplicationConnectionString();
     }
 
-    [Test] // CreateConnection gibt MySqlConnection zurück (Mock-based test)
+    [Test] // CreateConnection returns MySqlConnection (Mock-based test)
     public async Task CreateConnection_ReturnsMySqlConnection()
     {
         // Arrange - Mock successful initialization to avoid DB connection
@@ -69,7 +68,7 @@ public class SqlConnectionFactoryTests
         _databaseInitializer.Received().GetApplicationConnectionString();
     }
 
-    [Test] // CreateConnection ruft GetApplicationConnectionString auf
+    [Test] // CreateConnection calls GetApplicationConnectionString
     public async Task CreateConnection_CallsGetApplicationConnectionString()
     {
         // Arrange
@@ -82,7 +81,7 @@ public class SqlConnectionFactoryTests
         _databaseInitializer.Received().GetApplicationConnectionString();
     }
 
-    [Test]  // CreateConnection gibt bei mehreren Aufrufen unterschiedliche Instanzen zurück
+    [Test]  // CreateConnection returns different instances on multiple calls
     public async Task CreateConnection_MultipleCallsReturnDifferentInstances()
     {
         // Arrange - Mock successful initialization

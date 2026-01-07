@@ -45,7 +45,7 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
                 await connection.OpenAsync();
                 _logger.LogDebug("Bootstrap connection established successfully");
 
-                if (!await CheckIfDatabaseExists(connection))
+                if (!await CheckIfDatabaseExists(connection)) // Maybe DB was created in the meantime by another process
                 {
                     _logger.LogInformation("Database '{DatabaseName}' does not exist, creating it", databaseName);
                     await CreateDatabase(connection);
