@@ -78,8 +78,8 @@ Das Projekt folgt dem **Clean Architecture** Pattern mit klarer Trennung der Ver
 |-----------|----------|--------------|---------------|-------------------|
 | `GET` | `/api/Employee` | Alle Mitarbeiter abrufen | JWT Required | ✅ |
 | `GET` | `/api/Employee/{id}` | Mitarbeiter nach ID abrufen | JWT Required | ✅ |
-| `GET` | `/api/Employee/sorted?filter=LastName` | Mitarbeiter nach Nachnamen sortiert | JWT Required | ✅ |
-| `GET` | `/api/Employee/sorted?filter=isActive` | Alle aktiven Mitarbeiter | JWT Required | ✅ |
+| `GET` | `/api/Employee/search?search=LastName` | Mitarbeiter nach Nachnamen sortiert | JWT Required | ✅ |
+| `GET` | `/api/Employee/search?search=isActive` | Alle aktiven Mitarbeiter | JWT Required | ✅ |
 | `GET` | `/api/Employee/birthDate?birthDate={yyyy-MM-dd}` | Mitarbeiter mit Geburtsdatum vor Datum | JWT Required | ✅ |
 | `POST` | `/api/Employee` | Neuen Mitarbeiter erstellen | Admin Role | ✅ |
 | `PUT` | `/api/Employee/{id}` | Mitarbeiter aktualisieren | Admin Role | ✅ |

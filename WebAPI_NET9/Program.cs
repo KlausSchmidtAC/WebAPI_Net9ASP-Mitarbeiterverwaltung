@@ -35,10 +35,10 @@ catch (InvalidOperationException)
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    serverOptions.Listen(IPAddress.Any, 5100); // HTTP
-    serverOptions.Listen(IPAddress.Any, 5101, listenOptions =>
+    serverOptions.Listen(IPAddress.Loopback, 5100); // HTTP - nur localhost
+    serverOptions.Listen(IPAddress.Loopback, 5101, listenOptions =>
     {
-        listenOptions.UseHttps(); // HTTPS
+        listenOptions.UseHttps(); // HTTPS - nur localhost  
     });
 });
 
@@ -86,7 +86,7 @@ builder.Services.AddAuthentication(x =>
     {
         ValidIssuer = jwtConfig["Issuer"],
         ValidAudience = jwtConfig["Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtConfig["SecretKey"] ?? "default-secret-key-for-jwt-tokens")), // Null-safe signature for JWT tokens
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtConfig["SecretKey_DevelopmentOnly"] ?? "default-secret-key-for-jwt-tokens")), // Null-safe signature for JWT tokens
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateLifetime = true,

@@ -266,3 +266,29 @@ logs/
 #####
 # End of core ignore list, below put you custom 'per project' settings (patterns or path)
 #####
+
+# Configuration files with secrets (SECURITY CRITICAL)
+# Keep appsettings.json for development, but exclude production configs
+**/appsettings.Production.json
+**/appsettings.Staging.json
+**/appsettings.Live.json
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# User secrets (production)
+secrets.json
+
+# SSL certificates  
+*.pfx
+*.p12
+*.key
+*.crt
+
+# Database files
+*.db
+*.sqlite
+*.mdf
+*.ldf

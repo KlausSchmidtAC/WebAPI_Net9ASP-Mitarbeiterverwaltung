@@ -21,10 +21,10 @@ public class EmployeeRepository : IEmployeeRepository
         if (_commandTimeout <= 0 || _commandTimeout > 300) // Max 6 minutes
     {
         throw new ArgumentOutOfRangeException(nameof(_commandTimeout), 
-            $"CommandTimeout {_commandTimeout} ist außerhalb des gültigen Bereichs (1-300 Sekunden)");
+            $"CommandTimeout {_commandTimeout} is out of range (1-300 seconds)");
     }
     
-    _logger.LogInformation("CommandTimeout konfiguriert: {CommandTimeout}s", _commandTimeout);   
+    _logger.LogInformation("CommandTimeout configured: {CommandTimeout}s", _commandTimeout);   
     }
 
     public async Task<OperationResult<IEnumerable<Employee>>> GetAll(CancellationToken cancellationToken = default)
