@@ -1,4 +1,4 @@
-﻿# 🏢 Employee Management – Full Stack Demo
+﻿# 🏢 Mitarbeiterverwaltung – Full Stack Demo
 
 A full-stack **Employee Management** application built with **.NET 9 Web API** (backend) and **Vue.js 3** (frontend), demonstrating JWT authentication, Clean Architecture, and a modern reactive UI.
 
@@ -172,8 +172,8 @@ MySQL Database  <--  Connection Factory (1-3 ms/request)
 **Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
 ```bash
-git clone https://github.com/KlausSchmidtAC/WebAPI_Net9ASP-Mitarbeiterverwaltung.git
-cd WebAPI_Net9ASP-Mitarbeiterverwaltung
+git clone https://github.com/KlausSchmidtAC/.Net9ASP-Employee_Manager.git
+cd .Net9ASP-Employee_Manager
 
 docker-compose up --build
 ```
@@ -206,8 +206,8 @@ docker-compose down -v     # stop containers + delete volumes (DB data)
 #### 1. Backend
 
 ```bash
-git clone https://github.com/KlausSchmidtAC/WebAPI_Net9ASP-Mitarbeiterverwaltung.git
-cd WebAPI_Net9ASP-Mitarbeiterverwaltung
+git clone https://github.com/KlausSchmidtAC/.Net9ASP-Employee_Manager.git
+cd .Net9ASP-Employee_Manager
 dotnet restore
 
 cd WebAPI_NET9
@@ -285,6 +285,76 @@ curl http://localhost:5100/health        # Overall status (App + DB)
 curl http://localhost:5100/health/ready  # Kubernetes readiness probe (DB only)
 curl http://localhost:5100/health/live   # Kubernetes liveness probe (App only)
 ```
+
+---
+
+## 🔥 k6 Load Testing
+
+Zwei Testskripte liegen im Repository-Root:
+
+| Skript | Zweck |
+|---|---|
+| `api-tests.js` | Vollständiger CRUD-Zyklus, Haupt-Lasttest |
+| `api-test_avgT_iteration.js` | T_measured-Messung (Baseline für Kapazitätsplanung) |
+
+### Voraussetzungen
+
+```bash
+# k6 installieren (Windows)
+winget install k6
+
+# Backend via Docker starten (mind. 2 Instanzen für Lasttests)
+docker-compose up --build --scale backend=2
+```
+
+### Testausführung
+
+```bash
+# Haupt-Lasttest (400 VUs, ramping-vus)
+k6 run api-tests.js
+
+# T_measured messen (Baseline)
+k6 run api-test_avgT_iteration.js
+```
+
+### Thresholds (Stufe 6)
+
+| Metrik | Schwellwert | Ergebnis (400 VUs) |
+|---|---|---|
+| `http_req_failed` | `< 5 %` | ✅ 0,66 % |
+| `http_req_duration p(99)` | `< 5 000 ms` | ✅ 3,77 s |
+
+### Kapazitätsformel (Little's Law)
+
+$$\text{ConcurrentReq/Backend} = \frac{V \times T_{\text{measured}}}{(T_{\text{measured}} + T_{\text{sleep}}) \times B}$$
+
+Mit `T_measured=0,29s`, `T_sleep=1s`, `B=2 Backends`, `V=500 VUs`: **56 gleichzeitige Requests/Backend** → `MaxPoolSize=112`.
+
+> Detaillierte Erklärungen zu allen Stellschrauben: [`Merkzettel_Lasttest_Konfiguration.md`](Merkzettel_Lasttest_Konfiguration.md)
+
+---
+
+## ⚙️ Infrastruktur-Konfiguration (Performance-Tuning)
+
+### Timeout-Kette
+
+```
+k6 (10s)  <  nginx proxy_read (20s)  <  MySQL Connection Timeout (25s)
+```
+Jeder Layer bricht zuerst von außen nach innen ab – verhindert blockierte Pool-Slots.
+
+### Wichtige Konfigurationswerte
+
+| Komponente | Parameter | Wert | Begründung |
+|---|---|---|---|
+| **nginx** | `worker_connections` | 4096 | Max. Verbindungen pro Worker-Prozess |
+| **nginx** | `keepalive` (upstream) | 64 | Idle TCP-Verbindungen zu Backends offen halten |
+| **nginx** | `least_conn` | — | Load-Balancing nach wenigsten aktiven Verbindungen |
+| **MySQL Pool** | `Max Pool Size` | 112 | Berechnet via Kapazitätsformel (×Safety-Factor 2) |
+| **MySQL** | `max_connections` | 250 | `B × MaxPoolSize × 1,1` |
+| **Kestrel** | `MaxConcurrentConnections` | 1000 | ≥ nginx `worker_connections` |
+| **ThreadPool** | `SetMinThreads` | 100/100 | Verhindert ThreadPool-Starvation unter Last |
+| **CancellationToken** | `OpenAsync(ct)` | — | MySQL bricht Abfrage sofort ab wenn Client trennt |
 
 ---
 
