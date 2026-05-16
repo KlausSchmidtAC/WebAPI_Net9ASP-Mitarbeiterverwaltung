@@ -14,12 +14,18 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
     private readonly string username;
     private readonly string password;
 
-    // Bootstrap ConnectionString (without specific database)
+    // Bootstrap ConnectionString (without specific database) — kein Pooling nötig (nur beim Init)
     private string BootstrapConnectionString =>
-        $"Server={serverIP};Port={port};Uid={username};Pwd={password};";
+        $"Server={serverIP};Port={port};Uid={username};Pwd={password};Pooling=false;";
 
+    // Application ConnectionString mit Connection Pooling
+    // Min Pool Size=5: 5 Verbindungen immer offen (kein Kaltstart)
+    // Formel: Max Pool Size = (VUs_peak / Iterationsdauer / Backends) × Sicherheitsfaktor
+    // = (1000 VUs / 8s / 5 Backends) × 2 = 50
+    // max_connections = Backends × Max Pool Size + Reserve = 5×50+50 = 300
     private string ApplicationConnectionString =>
-        $"Server={serverIP};Port={port};Uid={username};Pwd={password};Database={databaseName};";
+        $"Server={serverIP};Port={port};Uid={username};Pwd={password};Database={databaseName};" +
+        $"Pooling=true;Min Pool Size=5;Max Pool Size=112;Connection Lifetime=300;Connection Timeout=25;";
 
     public SqlServerDatabaseInitializer(ILogger<SqlServerDatabaseInitializer> logger, 
                                       string serverIP = "localhost", string databaseName = "Employees",
@@ -52,7 +58,8 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
                 }
                 else
                 {
-                    _logger.LogInformation("Database '{DatabaseName}' already exists", databaseName);
+                    _logger.LogInformation("Database '{DatabaseName}' already exists, ensuring tables exist", databaseName);
+                    await EnsureTablesExist(connection);
                 }
 
             }
@@ -101,7 +108,7 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
             _logger.LogDebug("Switched to database '{DatabaseName}'", databaseName);
 
             var createTablesString = @"
-                CREATE TABLE IF NOT EXISTS employees (
+                CREATE TABLE IF NOT EXISTS Employees (
                     Id INT AUTO_INCREMENT PRIMARY KEY,
                     FirstName VARCHAR(100) NOT NULL,
                     LastName VARCHAR(100) NOT NULL,
@@ -124,8 +131,40 @@ public class SqlServerDatabaseInitializer : IDatabaseInitializer
         {
             _logger.LogError(ex, "Unexpected error creating database '{DatabaseName}'", databaseName);
             return false;
+            
         }
     }
+
+    public async Task<bool> EnsureTablesExist(MySqlConnection bootstrapConnection)
+    {
+        _logger.LogInformation("Ensuring tables exist in database '{DatabaseName}'", databaseName);
+        try
+        {
+            var useDbString = $"USE `{databaseName}`;";
+            using (var command = new MySqlCommand(useDbString, bootstrapConnection))
+                await Task.FromResult(command.ExecuteNonQuery());
+
+            var createTablesString = @"
+                CREATE TABLE IF NOT EXISTS `Employees` (
+                    Id INT AUTO_INCREMENT PRIMARY KEY,
+                    FirstName VARCHAR(100) NOT NULL,
+                    LastName VARCHAR(100) NOT NULL,
+                    Birthdate DATE NOT NULL,
+                    IsActive BOOLEAN NOT NULL
+                );";
+            using (var command = new MySqlCommand(createTablesString, bootstrapConnection))
+                await Task.FromResult(command.ExecuteNonQuery());
+
+            _logger.LogInformation("Tables ensured in database '{DatabaseName}'", databaseName);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error ensuring tables in database '{DatabaseName}'", databaseName);
+            return false;
+        }
+    }
+
     public async Task<bool> CheckIfDatabaseExists(MySqlConnection bootstrapConnection)
     {
         _logger.LogDebug("Checking if database '{DatabaseName}' exists", databaseName);

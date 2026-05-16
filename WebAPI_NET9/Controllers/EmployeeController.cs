@@ -29,6 +29,7 @@ namespace WebAPI_NET9.Controllers
         /// <remarks>
         /// Returns a complete, unsorted list of all employees.
         /// This endpoint is accessible without authentication for testing purposes.
+        /// example: GET /api/employees with no Authorization header
         /// </remarks>
         [HttpGet]
         [SwaggerOperation(
@@ -62,6 +63,7 @@ namespace WebAPI_NET9.Controllers
         /// Protected endpoint that allows searching employees based on the specified search criteria in the `search` query parameter. Supported search criteria include:
         /// - `search=isActive`: Returns only active employees.
         /// - `search=LastName`: Returns employees sorted alphabetically by last name.
+        /// Exmaple: GET /api/employees/search?search=isActive with Authorization in Request-Header: Bearer {token}
         /// </remarks>
         [Authorize]
         [SwaggerOperation(

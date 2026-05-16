@@ -68,6 +68,8 @@ public class AuthController : ControllerBase
     /// <remarks>
     /// Creates a JWT token based on the provided user data and custom claims.
     /// Creates a signed HS256 Bearer token. Token validity: 15 minutes.
+    /// Example: POST /api/auth/token with JSON body:
+    /// {username: "testuser", password: "password123", email: "testuser@user.com", "customClaims": {"isAdmin": true, "department": "IT"}}
     /// </remarks>
     [HttpPost("token")]
     [AllowAnonymous]

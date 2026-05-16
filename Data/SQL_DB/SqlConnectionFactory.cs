@@ -21,7 +21,7 @@ public class SqlConnectionFactory : IConnectionFactory
         return _databaseInitializer.GetApplicationConnectionString();
     }
 
-    public async Task<MySqlConnection> CreateConnection()
+    public async Task<MySqlConnection> CreateConnection(CancellationToken cancellationToken = default)
     {
         // Fast path: Skip initialization if already completed successfully
         if (_isInitialized)
@@ -32,7 +32,7 @@ public class SqlConnectionFactory : IConnectionFactory
             {
                 // Direct connection attempt - fast path with minimal overhead
                 var connection = new MySqlConnection(GetConnectionString());
-                await connection.OpenAsync(); // Test connection immediately
+                await connection.OpenAsync(cancellationToken); // Client-Abbruch wird sofort erkannt
                 return connection;
             }
             catch (MySqlException ex) when (ex.Number == 1049) // Database doesn't exist anymore although _isInitialized was checked true (DB externally deleted)
@@ -57,7 +57,7 @@ public class SqlConnectionFactory : IConnectionFactory
             {
                 _logger.LogDebug("Database initialization completed by another thread");
                 var connection = new MySqlConnection(_databaseInitializer.GetApplicationConnectionString());
-                await connection.OpenAsync();
+                await connection.OpenAsync(cancellationToken);
                 return connection;
             }
 
@@ -80,7 +80,7 @@ public class SqlConnectionFactory : IConnectionFactory
             _semaphore.Release();
         }
         var connection_first = new MySqlConnection(GetConnectionString());
-        await connection_first.OpenAsync();
+        await connection_first.OpenAsync(cancellationToken);
         return connection_first;
     }
 }

@@ -29,25 +29,25 @@ public class EmployeeRepository : IEmployeeRepository
 
     public async Task<OperationResult<IEnumerable<Employee>>> GetAll(CancellationToken cancellationToken = default)
     {
-        using (var connection = await _connectionFactory.CreateConnection())
+        using (var connection = await _connectionFactory.CreateConnection(cancellationToken))
         {
             // Connection is already opened by SqlConnectionFactory
 
             /** "Langer Weg" mit MySqlCommand und MySqlDataReader. Kurze Syntax aber mit Dapper VIEL besser! 
 
             using (var command = connection.CreateCommand()) {
-                command.CommandText = "SELECT * FROM Mitarbeiter";
+                command.CommandText = "SELECT * FROM Employees";
                 using (var reader = command.ExecuteReader()) {
-                    var result = new List<Mitarbeiter>();
+                    var result = new List<Employee>();
                     while (reader.Read()) {
-                        var mitarbeiter = new Mitarbeiter(
+                        var employee = new Employee(
                             reader.GetInt32("Id"),
                             reader.GetString("FirstName"),
                             reader.GetString("LastName"),
                             reader.GetDateTime("Birthdate").ToString("yyyy-MM-dd"), // ← DateTime → String
                             reader.GetBoolean("IsActive")
                         );
-                        result.Add(mitarbeiter);
+                        result.Add(employee);
                     }
                     return result;
                 }
@@ -83,7 +83,7 @@ public class EmployeeRepository : IEmployeeRepository
 
     public async Task<OperationResult<Employee>> GetById(int id, CancellationToken cancellationToken = default)
     {
-        using (var connection = await _connectionFactory.CreateConnection())
+        using (var connection = await _connectionFactory.CreateConnection(cancellationToken))
         {
             // Connection is already opened by SqlConnectionFactory
             var command = new CommandDefinition("SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Employees WHERE Id = @id", 
@@ -116,7 +116,7 @@ public class EmployeeRepository : IEmployeeRepository
         {
             if (search == "isActive")
             {
-                using (var connection = await _connectionFactory.CreateConnection())
+                using (var connection = await _connectionFactory.CreateConnection(cancellationToken))
                 {
                     // Connection is already opened by SqlConnectionFactory
 
@@ -139,7 +139,7 @@ public class EmployeeRepository : IEmployeeRepository
             }
             else if (search == "LastName")
             {
-                using (var connection = await _connectionFactory.CreateConnection())
+                using (var connection = await _connectionFactory.CreateConnection(cancellationToken))
                 {
                     // Connection is already opened by SqlConnectionFactory
                     var command = new CommandDefinition("SELECT Id, FirstName, LastName, Birthdate, IsActive FROM Employees Order By LastName DESC",
@@ -163,7 +163,7 @@ public class EmployeeRepository : IEmployeeRepository
             {
                 var birthDate_parsed = date;
 
-                using (var connection = await _connectionFactory.CreateConnection())
+                using (var connection = await _connectionFactory.CreateConnection(cancellationToken))
                 {
                     // Connection is already opened by SqlConnectionFactory
                     var command = new CommandDefinition(
@@ -193,7 +193,6 @@ public class EmployeeRepository : IEmployeeRepository
     public async Task<OperationResult<int>> Add(Employee? employee, CancellationToken cancellationToken = default)
     {
         DateOnly date;
-        int newId;
         try
         {
             if (employee == null || employee == default(Employee) || employee.FirstName == null || employee.LastName == null || employee.BirthDate == null)
@@ -234,29 +233,26 @@ public class EmployeeRepository : IEmployeeRepository
             return OperationResult<int>.FailureResult($"Error processing birth date: invalid characters entered! {ex.Message}");
         }
         
-        using (var connection = await _connectionFactory.CreateConnection())
+        using (var connection = await _connectionFactory.CreateConnection(cancellationToken))
         {
-            // Connection is already opened by SqlConnectionFactory
-            var Sql_maxID_command = new CommandDefinition("SELECT MAX(Id) FROM Employees;", cancellationToken: cancellationToken, commandTimeout: _commandTimeout);
-            var maxId = await connection.ExecuteScalarAsync<int>(Sql_maxID_command);
-                newId = maxId + 1;
-
-            var sql_Add_command = new CommandDefinition("INSERT INTO Employees (Id,FirstName, LastName, Birthdate, IsActive) VALUES (@Id, @FirstName, @LastName, @Birthdate, @IsActive);",
+            // AUTO_INCREMENT übernimmt die ID-Vergabe atomar → keine Race Condition möglich
+            var sql_Add_command = new CommandDefinition(
+                "INSERT INTO Employees (FirstName, LastName, Birthdate, IsActive) VALUES (@FirstName, @LastName, @Birthdate, @IsActive);",
                 new
                 {
-                Id = newId,
-                FirstName = employee.FirstName,
-                LastName = employee.LastName,
-                Birthdate = date.ToString("yyyy-MM-dd"),
-                IsActive = employee.IsActive
-                }, 
-            cancellationToken: cancellationToken, 
-            commandTimeout: _commandTimeout);
+                    FirstName = employee.FirstName,
+                    LastName = employee.LastName,
+                    Birthdate = date.ToString("yyyy-MM-dd"),
+                    IsActive = employee.IsActive
+                },
+                cancellationToken: cancellationToken,
+                commandTimeout: _commandTimeout);
             await connection.ExecuteAsync(sql_Add_command);
 
-        // Console.WriteLine($"Mitarbeiter mit ID {newId} hinzugefügt.");
+            var newId = await connection.ExecuteScalarAsync<int>(
+                new CommandDefinition("SELECT LAST_INSERT_ID();", cancellationToken: cancellationToken, commandTimeout: _commandTimeout));
+            return OperationResult<int>.SuccessResult(newId);
         }
-        return OperationResult<int>.SuccessResult(newId);
     }
 
     public async Task<OperationResult<int>> Update(int id, Employee? employee, CancellationToken cancellationToken = default)
@@ -293,7 +289,7 @@ public class EmployeeRepository : IEmployeeRepository
             return OperationResult<int>.FailureResult($"Error processing birth date: invalid characters entered! // {ex.Message}");
         }
 
-        using (var connection = await _connectionFactory.CreateConnection())
+        using (var connection = await _connectionFactory.CreateConnection(cancellationToken))
         {
             // Connection is already opened by SqlConnectionFactory
 
@@ -320,7 +316,7 @@ public class EmployeeRepository : IEmployeeRepository
             }
         }
 
-        using (var connection = await _connectionFactory.CreateConnection())
+        using (var connection = await _connectionFactory.CreateConnection(cancellationToken))
         {
             // Connection is already opened by SqlConnectionFactory
             var sql_Update = new CommandDefinition("UPDATE Employees SET FirstName = @FirstName, LastName = @LastName, Birthdate = @Birthdate, IsActive = @IsActive WHERE Id = @Id;",  
@@ -350,7 +346,7 @@ public class EmployeeRepository : IEmployeeRepository
     {   
 
        
-        using (var connection = await _connectionFactory.CreateConnection())
+        using (var connection = await _connectionFactory.CreateConnection(cancellationToken))
         {
             // Connection is already opened by SqlConnectionFactory
             var sql_Delete = new CommandDefinition("DELETE FROM Employees WHERE Id = @Id;", new { Id = id }, cancellationToken: cancellationToken, commandTimeout: _commandTimeout);

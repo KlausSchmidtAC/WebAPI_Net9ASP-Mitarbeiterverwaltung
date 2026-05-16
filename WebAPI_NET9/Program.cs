@@ -3,13 +3,13 @@ using WebAPI_NET9.Configuration;
 using WebAPI_NET9.HealthChecks;
 using WebAPI_NET9.Models;
 using Application;
-using Data.Repositories; 
+using Data.Repositories;
 using Data.SQL_DB;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Swashbuckle.AspNetCore.SwaggerGen;
-using Microsoft.Extensions.Options; 
+using Microsoft.Extensions.Options;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Resources;
@@ -56,7 +56,21 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
         });
     }
 });
-**/ 
+**/
+
+// Kestrel Limits für Hochlast
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxConcurrentConnections = 1000;
+    options.Limits.MaxConcurrentUpgradedConnections = 1000;  // WebSocket-Upgrades eingeschlossen
+    options.Limits.MaxRequestBodySize = 1024 * 1024; // 1 MB
+    options.Limits.KeepAliveTimeout = TimeSpan.FromSeconds(60);
+    options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(15);
+    options.Limits.Http2.MaxStreamsPerConnection = 100; // HTTP/2 parallele Streams
+});
+
+// ThreadPool Minimum für viele parallele DB-Requests
+ThreadPool.SetMinThreads(100, 100);
 
 var jwtConfig = builder.Configuration.GetSection("JWTSettings");
 Console.WriteLine("Hello from .NET 9 Web Employee API!");
@@ -70,10 +84,14 @@ builder.Logging.ClearProviders();
 // OTLP Exporter instead of Console-Logging
 builder.Logging.AddOpenTelemetry(options =>
 {
-    options.SetResourceBuilder(ResourceBuilder.CreateEmpty().AddService("WebAPI_NET9_EmployeeService").AddAttributes(new Dictionary<string, object>
+    options.SetResourceBuilder(ResourceBuilder.CreateEmpty()
+    .AddService("WebAPI_NET9_EmployeeService")
+    .AddAttributes(new Dictionary<string, object>
     {
         ["deployment.environment"] = builder.Environment.EnvironmentName,
-        ["service.version"] = "1.0.0"
+        ["service.version"] = "1.0.0",
+        ["service.name"] = "WebAPI_NET9_EmployeeService",
+        ["service.instance.id"] = Environment.MachineName // Example of custom attribute - could be Git commit hash or build number in real scenarios
     }));
 
     options.IncludeScopes = true;
@@ -86,7 +104,7 @@ builder.Logging.AddOpenTelemetry(options =>
         exporter.Protocol = OtlpExportProtocol.HttpProtobuf;
         exporter.Headers = "";
     });
-}); 
+});
 
 
 Console.WriteLine("Hello from OpenTelemetry logging setup!");
@@ -102,10 +120,10 @@ builder.Services.AddAuthentication(x =>
     options.SaveToken = true;
     options.RequireHttpsMetadata = !builder.Environment.IsDevelopment(); // HTTPS only in Production
 
-     var secretKey = (builder.Environment.IsDevelopment() || builder.Environment.EnvironmentName == "Docker")
-        ? jwtConfig["SecretKey"]                                        // Development/Docker: from appsettings.{ENV}.json
-        : Environment.GetEnvironmentVariable("JWT_SECRET_KEY");         // Production: from environment variable
-    
+    var secretKey = (builder.Environment.IsDevelopment() || builder.Environment.EnvironmentName == "Docker")
+       ? jwtConfig["SecretKey"]                                        // Development/Docker: from appsettings.{ENV}.json
+       : Environment.GetEnvironmentVariable("JWT_SECRET_KEY");         // Production: from environment variable
+
     if (string.IsNullOrEmpty(secretKey))
     {
         throw new InvalidOperationException($"JWT SecretKey is required. Environment: {builder.Environment.EnvironmentName}");
@@ -136,17 +154,17 @@ builder.Services.AddAuthorization(options =>cd
 builder.Services.AddControllers();
 
 // Environment-based CORS configuration
-var corsOrigins = builder.Environment.IsDevelopment() 
-    ? new[] { // HTTP Development Origins
-        "http://localhost:8080", 
-        "http://127.0.0.1:8080", 
+var corsOrigins = (builder.Environment.IsDevelopment() || builder.Environment.EnvironmentName == "Docker") ?
+    new[] { // HTTP Development Origins
+        "http://localhost:8080",    // Vue dev server
+        "http://127.0.0.1:8080",
         "http://localhost:3000",
         "http://localhost:5173",    // Vite dev server
         // HTTPS Development Origins
-        "https://localhost:8080", 
-        "https://127.0.0.1:8080", 
+        "https://localhost:8080",
+        "https://127.0.0.1:8080",
         "https://localhost:3000",
-        "https://localhost:5173" }    // Vite HTTPS dev server 
+        "https://localhost:5173"}
     : new[] { "https://yourdomain.com", "https://www.yourdomain.com" };  // HTTPS in Production!
 
 builder.Services.AddCors(options =>
@@ -163,7 +181,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddEndpointsApiExplorer();
 
 // Configure Swagger, JWT Token Service for Swagger-OPEN API configured as Singleton (only used at startup)
-builder.Services.AddSwaggerGen( c => 
+builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
@@ -172,20 +190,21 @@ builder.Services.AddSwaggerGen( c =>
         Description = "A simple ASP.NET Core Web API for managing employees with JWT Authentication and OpenAPI documentation.",
         Contact = new Microsoft.OpenApi.Models.OpenApiContact
         {
-            Name = "K. Schmidt", 
-            Email = "klaus.schmidt1@rwth-aachen.de"}
+            Name = "K. Schmidt",
+            Email = "klaus.schmidt1@rwth-aachen.de"
+        }
     });
-    c.EnableAnnotations(); 
-}); 
+    c.EnableAnnotations();
+});
 
-            
+
 builder.Services.AddSingleton<IConfigureOptions<SwaggerGenOptions>, ConfigureSwaggerOptions>();
 
 
-// Configure JSON Serializer Options
-builder.Services.ConfigureHttpJsonOptions(options =>    
+// Configure JSON Serializer Options: Use Source-Generated Context for better performance and AOT compatibility, especially in Blazor WebAssembly or Native AOT scenarios. This allows for pre-compilation of JSON serialization metadata, improving runtime performance and reducing memory usage.
+builder.Services.ConfigureHttpJsonOptions(options =>
 {
-   options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default); 
+    options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default);
 });
 
 // Register Dependency Injection Services as Singleton (for the entire application)
@@ -205,7 +224,7 @@ builder.Services.AddSingleton<IDatabaseInitializer>(provider =>
     new SqlServerDatabaseInitializer(
         provider.GetRequiredService<ILogger<SqlServerDatabaseInitializer>>(),
         dbConfig["ServerIP"] ?? "localhost",
-        dbConfig["DatabaseName"] ?? "employees", 
+        dbConfig["DatabaseName"] ?? "employees",
         dbConfig["Port"] ?? "3306",
         dbConfig["Username"] ?? "root",
         dbConfig["Password"] ?? ""
@@ -222,7 +241,7 @@ app.UseCors("WebPolicy");
 
 
 if (app.Environment.IsDevelopment())
-{   
+{
     // app.MapOpenApi(); // Alternative: app.UseSwagger() + app.UseSwaggerUI() for more control and customization of Swagger-UI and OpenAPI documentation
     app.UseSwagger();
     app.UseSwaggerUI();
