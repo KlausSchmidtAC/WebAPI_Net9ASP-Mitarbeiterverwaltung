@@ -1,4 +1,4 @@
-﻿# 🏢 Mitarbeiterverwaltung – Full Stack Demo
+﻿# 🏢 Employee Management – Full Stack Demo
 
 A full-stack **Employee Management** application built with **.NET 9 Web API** (backend) and **Vue.js 3** (frontend), demonstrating JWT authentication, Clean Architecture, and a modern reactive UI.
 
@@ -290,71 +290,71 @@ curl http://localhost:5100/health/live   # Kubernetes liveness probe (App only)
 
 ## 🔥 k6 Load Testing
 
-Zwei Testskripte liegen im Repository-Root:
+Two test scripts are located in the repository root:
 
-| Skript | Zweck |
+| Script | Purpose |
 |---|---|
-| `api-tests.js` | Vollständiger CRUD-Zyklus, Haupt-Lasttest |
-| `api-test_avgT_iteration.js` | T_measured-Messung (Baseline für Kapazitätsplanung) |
+| `api-tests.js` | Full CRUD cycle, main load test |
+| `api-test_avgT_iteration.js` | T_measured baseline script for capacity planning |
 
-### Voraussetzungen
+### Prerequisites
 
 ```bash
-# k6 installieren (Windows)
+# Install k6 (Windows)
 winget install k6
 
-# Backend via Docker starten (mind. 2 Instanzen für Lasttests)
+# Start backend via Docker (at least 2 instances for load tests)
 docker-compose up --build --scale backend=2
 ```
 
-### Testausführung
+### Running the Tests
 
 ```bash
-# Haupt-Lasttest (400 VUs, ramping-vus)
+# Main load test (400 VUs, ramping-vus)
 k6 run api-tests.js
 
-# T_measured messen (Baseline)
+# Measure T_measured (baseline)
 k6 run api-test_avgT_iteration.js
 ```
 
-### Thresholds (Stufe 6)
+### Thresholds (Stage 6)
 
-| Metrik | Schwellwert | Ergebnis (400 VUs) |
+| Metric | Threshold | Result (400 VUs) |
 |---|---|---|
-| `http_req_failed` | `< 5 %` | ✅ 0,66 % |
-| `http_req_duration p(99)` | `< 5 000 ms` | ✅ 3,77 s |
+| `http_req_failed` | `< 5 %` | ✅ 0.66 % |
+| `http_req_duration p(99)` | `< 5 000 ms` | ✅ 3.77 s |
 
-### Kapazitätsformel (Little's Law)
+### Capacity Formula (Little's Law)
 
 $$\text{ConcurrentReq/Backend} = \frac{V \times T_{\text{measured}}}{(T_{\text{measured}} + T_{\text{sleep}}) \times B}$$
 
-Mit `T_measured=0,29s`, `T_sleep=1s`, `B=2 Backends`, `V=500 VUs`: **56 gleichzeitige Requests/Backend** → `MaxPoolSize=112`.
+With `T_measured=0.29s`, `T_sleep=1s`, `B=2 backends`, `V=500 VUs`: **56 concurrent requests/backend** → `MaxPoolSize=112`.
 
-> Detaillierte Erklärungen zu allen Stellschrauben: [`Merkzettel_Lasttest_Konfiguration.md`](Merkzettel_Lasttest_Konfiguration.md)
+> Detailed explanations for all configuration knobs: [`Merkzettel_Lasttest_Konfiguration.md`](Merkzettel_Lasttest_Konfiguration.md)
 
 ---
 
-## ⚙️ Infrastruktur-Konfiguration (Performance-Tuning)
+## ⚙️ Infrastructure Configuration (Performance Tuning)
 
-### Timeout-Kette
+### Timeout Chain
 
 ```
 k6 (10s)  <  nginx proxy_read (20s)  <  MySQL Connection Timeout (25s)
 ```
-Jeder Layer bricht zuerst von außen nach innen ab – verhindert blockierte Pool-Slots.
+Each layer times out from the outside in – prevents blocked connection pool slots.
 
-### Wichtige Konfigurationswerte
+### Key Configuration Values
 
-| Komponente | Parameter | Wert | Begründung |
+| Component | Parameter | Value | Reason |
 |---|---|---|---|
-| **nginx** | `worker_connections` | 4096 | Max. Verbindungen pro Worker-Prozess |
-| **nginx** | `keepalive` (upstream) | 64 | Idle TCP-Verbindungen zu Backends offen halten |
-| **nginx** | `least_conn` | — | Load-Balancing nach wenigsten aktiven Verbindungen |
-| **MySQL Pool** | `Max Pool Size` | 112 | Berechnet via Kapazitätsformel (×Safety-Factor 2) |
-| **MySQL** | `max_connections` | 250 | `B × MaxPoolSize × 1,1` |
-| **Kestrel** | `MaxConcurrentConnections` | 1000 | ≥ nginx `worker_connections` |
-| **ThreadPool** | `SetMinThreads` | 100/100 | Verhindert ThreadPool-Starvation unter Last |
-| **CancellationToken** | `OpenAsync(ct)` | — | MySQL bricht Abfrage sofort ab wenn Client trennt |
+| **nginx** | `worker_connections` | 4096 | Max connections per worker process |
+| **nginx** | `keepalive` (upstream) | 64 | Keep idle TCP connections to backends open |
+| **nginx** | `least_conn` | — | Route to backend with fewest active connections |
+| **MySQL Pool** | `Max Pool Size` | 112 | Calculated via capacity formula (× safety factor 2) |
+| **MySQL** | `max_connections` | 250 | `B × MaxPoolSize × 1.1` |
+| **Kestrel** | `MaxConcurrentConnections` | 1000 | Should be ≥ nginx `worker_connections` |
+| **ThreadPool** | `SetMinThreads` | 100/100 | Prevents thread-pool starvation under load |
+| **CancellationToken** | `OpenAsync(ct)` | — | MySQL cancels query immediately when client disconnects |
 
 ---
 
